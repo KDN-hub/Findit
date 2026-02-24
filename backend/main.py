@@ -66,17 +66,18 @@ def run_migrations():
 
 app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 
-ALLOWED_ORIGINS = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://10.20.10.12:3000,http://10.20.11.143:3000,http://192.168.137.1:3000"
-).split(",")
+# Define the allowed origins for your live app
+origins = [
+    "http://localhost:3000",
+    "https://finditapp-v1.vercel.app",  # Your specific Vercel URL
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins,            # Explicitly allow your Vercel frontend
+    allow_credentials=True,           # Essential for Google Sign-In and sessions
+    allow_methods=["*"],              # Allows all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],              # Allows all headers
 )
 
 # Ensure uploads directory exists
