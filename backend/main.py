@@ -74,10 +74,11 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,            # Explicitly allow your Vercel frontend
-    allow_credentials=True,           # Essential for Google Sign-In and sessions
-    allow_methods=["*"],              # Allows all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],              # Allows all headers
+    allow_origins=origins,            
+    allow_credentials=True,           # Required for Google Sign-In sessions
+    allow_methods=["*"],              
+    allow_headers=["*"],              
+    expose_headers=["*"],             # This helps the browser "see" the response
 )
 
 # Ensure uploads directory exists
