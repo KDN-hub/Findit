@@ -1,11 +1,11 @@
 'use server';
 
 import { setSessionCookie, clearSessionCookie } from '@/lib/auth';
+import { API_BASE_URL } from '@/lib/config';
 import { signUpSchema, signInSchema } from '@/lib/validations';
 import type { ActionResponse } from '@/types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-const API_URL = `${API_BASE}/auth`;
+const API_URL = `${API_BASE_URL}/auth`;
 
 export async function signUpAction(
   formData: FormData
