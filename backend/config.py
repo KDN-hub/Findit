@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# ── 1. SEARCH PARTY: Try multiple locations for .env ──
+# ── 1. SEARCH PARTY: Try multiple locations for .env (optional — works without file on Render) ──
 _THIS_DIR = Path(__file__).resolve().parent  # backend/
 
 _SEARCH_LOCATIONS = [
@@ -25,10 +25,9 @@ for _candidate in _SEARCH_LOCATIONS:
         break                                    # first match wins
 
 if not _env_loaded:
-    print("[ERROR] CRITICAL: No .env file found in any of these locations:")
-    for loc in _SEARCH_LOCATIONS:
-        print(f"   • {loc}  (exists: {loc.exists()})")
-    print("   → Create a .env file in your backend/ folder.")
+    # Optional: load_dotenv(override=True) does not fail if .env is missing (e.g. on Render)
+    load_dotenv(override=True)
+    print("[CONFIG] No .env file found; using environment variables only (OK for production/Render).")
 
 
 # ── 2. CONFIGURATION VALUES ──
