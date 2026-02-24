@@ -1,0 +1,263 @@
+@import "tailwindcss";
+
+/* Findit - Lost and Found System */
+/* Mobile-first design for Babcock University */
+
+:root {
+  /* Primary Colors */
+  --color-primary: #003898;
+  --color-primary-light: #0052CC;
+  --color-primary-dark: #002266;
+  
+  /* Background & Surface */
+  --color-background: #ffffff;
+  --color-surface: #F8FAFC;
+  --color-surface-elevated: #ffffff;
+  
+  /* Text Colors */
+  --color-foreground: #0f172a;
+  --color-foreground-secondary: #64748b;
+  --color-foreground-muted: #94a3b8;
+  
+  /* Border & Divider */
+  --color-border: #e2e8f0;
+  --color-divider: #f1f5f9;
+  
+  /* Input */
+  --color-input-bg: #F1F5F9;
+  --color-input-border: #e2e8f0;
+  
+  /* Status Colors */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+  
+  /* Card */
+  --color-card-bg: #F8FAFC;
+  
+  /* Navigation Bar - Light Theme */
+  --color-nav-bg: #ffffff;
+  --color-nav-icon: #94a3b8;
+  --color-nav-icon-active: #ffffff;
+  --color-nav-highlight: #003898;
+  --color-nav-fab: #003898;
+}
+
+/* Dark Mode Variables */
+.dark {
+  --color-primary: #3B82F6;
+  --color-primary-light: #60A5FA;
+  --color-primary-dark: #2563EB;
+  
+  /* Background & Surface */
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-elevated: #334155;
+  
+  /* Text Colors */
+  --color-foreground: #f8fafc;
+  --color-foreground-secondary: #cbd5e1;
+  --color-foreground-muted: #94a3b8;
+  
+  /* Border & Divider */
+  --color-border: #334155;
+  --color-divider: #1e293b;
+  
+  /* Input */
+  --color-input-bg: #1e293b;
+  --color-input-border: #334155;
+  
+  /* Card */
+  --color-card-bg: #1e293b;
+  
+  /* Navigation Bar - Dark Mode */
+  --color-nav-bg: #1e293b;
+  --color-nav-icon: #94a3b8;
+  --color-nav-icon-active: #ffffff;
+  --color-nav-highlight: #334155;
+  --color-nav-fab: #3B82F6;
+}
+
+@theme inline {
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+  --font-sans: var(--font-inter-tight), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-inter-tight), "Inter Tight", ui-sans-serif, system-ui, sans-serif !important;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Dark mode utility classes */
+.dark .bg-white {
+  background-color: var(--color-surface) !important;
+}
+
+.dark .bg-\[\#F8FAFC\],
+.dark .bg-\[\#F1F5F9\],
+.dark .bg-\[\#E8ECF4\] {
+  background-color: var(--color-surface-elevated) !important;
+}
+
+.dark .text-slate-800,
+.dark .text-\[\#003898\] {
+  color: var(--color-foreground) !important;
+}
+
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-\[\#6B7280\] {
+  color: var(--color-foreground-secondary) !important;
+}
+
+.dark .text-slate-400 {
+  color: var(--color-foreground-muted) !important;
+}
+
+.dark .border-slate-100,
+.dark .border-slate-200 {
+  border-color: var(--color-border) !important;
+}
+
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--color-border) !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: var(--color-input-bg) !important;
+  border-color: var(--color-input-border) !important;
+  color: var(--color-foreground) !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--color-foreground-muted) !important;
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-foreground-muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-foreground-secondary);
+}
+
+/* Mobile-first safe area handling */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Smooth page transitions */
+.page-transition {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slide up animation for modals */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Skeleton loading animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-surface) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Hide scrollbar but keep functionality */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Theme transition */
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
+/* Disable transitions on page load */
+.no-transitions * {
+  transition: none !important;
+}
