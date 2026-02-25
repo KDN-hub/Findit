@@ -46,19 +46,21 @@ app = FastAPI()
 
 @app.on_event("startup")
 def run_migrations():
-    """Safely add reset_code columns to users table if they don't exist."""
+    """Safely add reset_code columns to users table if they don't exist (valid MySQL syntax)."""
     try:
         from database import connection_pool
         conn = connection_pool.get_connection()
         cursor = conn.cursor()
+        # Check existing columns (works on all MySQL versions; IF NOT EXISTS for ADD COLUMN is MySQL 8.0.12+ only)
         cursor.execute("""
-            ALTER TABLE users 
-            ADD COLUMN IF NOT EXISTS reset_code VARCHAR(4) DEFAULT NULL
+            SELECT COLUMN_NAME FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('reset_code', 'reset_code_expires')
         """)
-        cursor.execute("""
-            ALTER TABLE users 
-            ADD COLUMN IF NOT EXISTS reset_code_expires DATETIME DEFAULT NULL
-        """)
+        existing = {row[0] for row in cursor.fetchall()}
+        if "reset_code" not in existing:
+            cursor.execute("ALTER TABLE users ADD COLUMN reset_code VARCHAR(4) DEFAULT NULL")
+        if "reset_code_expires" not in existing:
+            cursor.execute("ALTER TABLE users ADD COLUMN reset_code_expires DATETIME DEFAULT NULL")
         conn.commit()
         cursor.close()
         conn.close()
@@ -71,8 +73,8 @@ app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 # ─── CORS & security (finalized) ─────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://finditapp-v1.vercel.app"],  # No trailing slash!
-    allow_credentials=True,
+    allow_origins=["https://finditapp-v1.vercel.app"],  # No trailing slash
+    allow_credentials=True,                             # Required for logins
     allow_methods=["*"],
     allow_headers=["*"],
 )
