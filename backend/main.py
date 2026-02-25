@@ -32,7 +32,10 @@ from auth_utils import verify_password, get_password_hash, create_access_token, 
 from email_service import send_login_alert_email
 from utils import send_login_alert
 from routers import messaging
+from init_db import ensure_tables
 
+# Create all tables if they don't exist (equivalent to SQLAlchemy Base.metadata.create_all)
+ensure_tables()
 
 def require_admin(current_user: dict = Depends(get_current_user)):
     """Dependency that rejects non-admin users."""

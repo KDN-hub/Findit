@@ -34,12 +34,12 @@ This is the Python/FastAPI backend for the Findit project.
 
 5.  **Database Setup:**
     - Ensure your MySQL server is running.
-    - Create the database named `findit` (or whatever you set in `.env`).
-    - Run the schema script to create the table:
+    - Create the database (e.g. `findit` locally, or use the name your host gives you, e.g. `defaultdb` on Render).
+    - Run the init script **once** to create all tables (`users`, `items`, `messages`, `claims`, `conversations`):
         ```bash
-        # You can use a tool like MySQL Workbench or command line
-        mysql -u root -p findit < schema.sql
+        python init_db.py
         ```
+        This uses the same config as the app (from `.env` or environment variables).
 
 ## Running the Server
 
@@ -62,7 +62,7 @@ The server will start at `http://localhost:8000`.
 ## Deployment
 
 1. **Environment:** Copy `.env.example` to `.env` and set all variables. Use a strong `SECRET_KEY` and never commit `.env`.
-2. **Database:** Run migrations in order: `schema.sql`, then `create_conversations_table.sql`, then `add_handover_codes.sql` (and any other migration scripts in this folder). Ensure `reset_code` columns exist (main.py runs a startup migration for them).
+2. **Database:** Run **`python init_db.py` once** against your production database. Use the same env vars as the app (e.g. on Render set `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`). If your host uses a default database name (e.g. `defaultdb`), set `DB_NAME=defaultdb` and run `init_db.py` so the `users` table (and others) exist—otherwise you’ll see errors like `Table 'defaultdb.users' doesn't exist`. The app adds `reset_code` columns at startup if missing.
 3. **CORS:** Set `ALLOWED_ORIGINS` to your frontend URL(s), e.g. `https://your-app.vercel.app`.
 4. **Run:** For production, run without `--reload`: `uvicorn main:app --host 0.0.0.0 --port 8000`.
 5. **Frontend:** Set `NEXT_PUBLIC_API_URL` to your backend URL in production (or rely on same-host detection if frontend and API share a domain).
