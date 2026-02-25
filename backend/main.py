@@ -70,11 +70,11 @@ def run_migrations():
 
 app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 
-# ─── CORS & security (finalized) ─────────────────────────────────────────
+# CORS: explicit origin only (never allow_origins=["*"] when allow_credentials=True — browser rejects it)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://finditapp-v1.vercel.app"],  # No trailing slash
-    allow_credentials=True,                             # Required for logins
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
