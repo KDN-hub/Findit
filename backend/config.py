@@ -50,24 +50,27 @@ EMAIL_SERVER = os.getenv("EMAIL_SERVER", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", 465))
 
 
+# Resend (used instead of SMTP on Render free tier)
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+
 # ── 3. VALIDATION ──
 def validate():
-    """Call at startup to fail fast if critical env vars are missing."""
+    """Call at startup to fail fast if critical env vars are missing (Resend)."""
     missing = []
     if not MAIL_FROM:
         missing.append("MAIL_FROM")
-    if not MAIL_PASSWORD:
-        missing.append("MAIL_PASSWORD")
+    if not RESEND_API_KEY:
+        missing.append("RESEND_API_KEY")
     if missing:
-        msg = f"Missing environment variables: {', '.join(missing)} — check your .env file!"
+        msg = f"Missing environment variables: {', '.join(missing)} — set MAIL_FROM and RESEND_API_KEY for email (Resend)."
         print(f"[ERROR] {msg}")
         raise ValueError(msg)
-    print(f"[OK] Email config OK -> sending as {MAIL_FROM}")
+    print(f"[OK] Email config OK (Resend) -> sending as {MAIL_FROM}")
 
 
 # ── 4. DEBUG SUMMARY ──
 print(f"[CONFIG] MAIL_FROM     = {MAIL_FROM}")
 print(f"[CONFIG] MAIL_USERNAME = {MAIL_USERNAME}")
 print(f"[CONFIG] MAIL_PASSWORD = {'***SET***' if MAIL_PASSWORD else 'NOT SET [WARNING]'}")
-print(f"[CONFIG] EMAIL_SERVER  = {EMAIL_SERVER}:{EMAIL_PORT}")
+print(f"[CONFIG] RESEND_API_KEY = {'***SET***' if RESEND_API_KEY else 'NOT SET [WARNING]'}")
 print(f"[CONFIG] DB            = {DB_USER}@{DB_HOST}:{DB_PORT}/{DB_NAME}")

@@ -18,6 +18,7 @@ export type UserPublic = Omit<User, 'password_hash'>;
 export type ItemCategory =
   | 'Electronics'
   | 'ID Cards'
+  | 'ATM Card'
   | 'Books'
   | 'Clothing'
   | 'Accessories'

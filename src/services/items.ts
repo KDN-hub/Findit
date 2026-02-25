@@ -1,6 +1,7 @@
 export const CATEGORIES = [
   'Electronics',
   'ID Cards',
+  'ATM Card',
   'Books',
   'Clothing',
   'Accessories',

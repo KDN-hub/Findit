@@ -46,6 +46,7 @@ export const signInSchema = z.object({
 const itemCategories = [
   'Electronics',
   'ID Cards',
+  'ATM Card',
   'Books',
   'Clothing',
   'Accessories',

@@ -29,8 +29,7 @@ import shutil
 
 from database import get_db_connection
 from auth_utils import verify_password, get_password_hash, create_access_token, get_current_user
-from email_service import send_login_alert_email
-from utils import send_login_alert
+from email_service import send_login_alert_email, send_reset_code_email
 from routers import messaging
 from init_db import ensure_tables
 
@@ -198,21 +197,17 @@ def read_root():
 @app.get("/test-email")
 def test_email():
     """
-    Simple test endpoint to debug email configuration.
-    Sends a test email to MAIL_FROM address in the foreground (so errors are visible immediately).
+    Simple test endpoint to debug email configuration (Resend).
+    Sends a test login alert to MAIL_FROM in the foreground so errors are visible.
     """
     try:
         test_email_address = os.getenv("MAIL_FROM")
         if not test_email_address:
             return {"error": "MAIL_FROM environment variable is not set"}
-        
-        print(f"[TEST EMAIL] Starting email test to {test_email_address}...")
-        print(f"[TEST EMAIL] Using SMTP: {os.getenv('EMAIL_SERVER', 'smtp.gmail.com')}:{os.getenv('EMAIL_PORT', '465')}")
-        print(f"[TEST EMAIL] Using credentials: {os.getenv('MAIL_USERNAME') or os.getenv('MAIL_FROM')}")
-        
-        # Send a simple test email using the existing email function
-        send_login_alert(test_email_address)
-        
+        if not os.getenv("RESEND_API_KEY"):
+            return {"error": "RESEND_API_KEY environment variable is not set"}
+        print(f"[TEST EMAIL] Sending via Resend to {test_email_address}...")
+        send_login_alert_email(test_email_address, "Test User")
         return {"status": "Email Sent! Check your inbox."}
     except Exception as e:
         error_msg = str(e)
@@ -320,7 +315,7 @@ def login(login_data: LoginRequest, background_tasks: BackgroundTasks, db=Depend
             )
         
         # Send login alert email in the background (non-blocking)
-        background_tasks.add_task(send_login_alert, user['email'])
+        background_tasks.add_task(send_login_alert_email, user['email'], user.get('full_name', 'User'))
         
         # Create Access Token
         access_token = create_access_token(data={"sub": user['email'], "id": user['id'], "role": user['role'], "full_name": user.get('full_name')})
@@ -454,52 +449,6 @@ def generate_otp() -> str:
     return f"{random.randint(0, 9999):04d}"
 
 
-def _send_reset_code_email(user_email: str, otp: str):
-    """Sends the OTP reset code email using smtplib."""
-    import smtplib
-    from email.message import EmailMessage
-
-    subject = "Your FindIt Reset Code"
-    html_body = f"""\
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #003898; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: #ffffff; margin: 0;">FindIt</h1>
-        </div>
-        <div style="padding: 30px; background-color: #f9f9f9; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
-          <h2 style="color: #333;">Password Reset Code</h2>
-          <p>You requested a password reset. Use the code below — it expires in <strong>15 minutes</strong>.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <span style="font-size: 40px; font-weight: bold; letter-spacing: 12px; color: #003898;">{otp}</span>
-          </div>
-          <p>If you did not request this, you can safely ignore this email.</p>
-          <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #999;">This is an automated message from FindIt. Do not reply.</p>
-        </div>
-      </body>
-    </html>
-    """
-
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = MAIL_FROM
-    msg["To"] = user_email
-    msg.set_content(f"Your FindIt reset code is: {otp}. It expires in 15 minutes.")
-    msg.add_alternative(html_body, subtype="html")
-
-    try:
-        smtp_server = os.getenv("EMAIL_SERVER", "smtp.gmail.com")
-        smtp_port = int(os.getenv("EMAIL_PORT", 465))
-        login_user = MAIL_USERNAME if MAIL_USERNAME else MAIL_FROM
-        with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=10) as server:
-            server.login(login_user, MAIL_PASSWORD)
-            server.send_message(msg)
-        print(f"[EMAIL] Reset code sent to {user_email}")
-    except Exception as e:
-        print(f"[EMAIL ERROR] Failed to send reset code to {user_email}: {e}")
-        raise
-
-
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -513,9 +462,10 @@ class ResetPasswordRequest(BaseModel):
 @app.post("/auth/forgot-password")
 def forgot_password(
     data: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
     db=Depends(get_db_connection),
 ):
-    """Generates a 4-digit OTP, saves it to DB, and emails it synchronously."""
+    """Generates a 4-digit OTP, saves it to DB, and queues email via Resend in the background."""
     print(f"[FORGOT-PW] Request received for email: {data.email}")
     cursor = db.cursor(dictionary=True)
     try:
@@ -528,7 +478,6 @@ def forgot_password(
 
         if not user:
             print(f"[FORGOT-PW] No user found with email: {data.email}")
-            # Return 404 so frontend can show a clear error
             raise HTTPException(status_code=404, detail="No account found with that email address.")
 
         print(f"[FORGOT-PW] Found user id={user['id']}, provider={user['auth_provider']}")
@@ -544,23 +493,8 @@ def forgot_password(
         db.commit()
         print(f"[FORGOT-PW] OTP saved to database for user {user['id']}")
 
-        # Send email SYNCHRONOUSLY so any error is immediately visible
-        print(f"[FORGOT-PW] Attempting to send email to {user['email']}...")
-        try:
-            _send_reset_code_email(user["email"], otp)
-            print(f"[FORGOT-PW] ✅ Email sent successfully to {user['email']}")
-        except Exception as email_err:
-            print(f"[FORGOT-PW] ❌ Email FAILED: {type(email_err).__name__}: {email_err}")
-            # Roll back the OTP so the user can try again
-            cursor.execute(
-                "UPDATE users SET reset_code = NULL, reset_code_expires = NULL WHERE id = %s",
-                (user["id"],)
-            )
-            db.commit()
-            raise HTTPException(
-                status_code=500,
-                detail=f"Email failed to send: {type(email_err).__name__}: {email_err}"
-            )
+        # Send email in the background so the user gets a fast response
+        background_tasks.add_task(send_reset_code_email, user["email"], otp)
 
         return {"message": "Reset code sent to your email.", "email_sent": True}
 

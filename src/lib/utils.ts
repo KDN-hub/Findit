@@ -59,6 +59,7 @@ export function getCategoryColor(category: string): string {
   const colors: Record<string, string> = {
     Electronics: 'bg-blue-100 text-blue-700',
     'ID Cards': 'bg-purple-100 text-purple-700',
+    'ATM Card': 'bg-indigo-100 text-indigo-700',
     Books: 'bg-amber-100 text-amber-700',
     Clothing: 'bg-pink-100 text-pink-700',
     Accessories: 'bg-teal-100 text-teal-700',

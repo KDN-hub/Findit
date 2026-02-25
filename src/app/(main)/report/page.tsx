@@ -9,6 +9,7 @@ import { CAMPUS_LOCATIONS } from '@/lib/constants';
 const categories = [
   'Electronics',
   'ID Cards',
+  'ATM Card',
   'Books',
   'Clothing',
   'Accessories',
