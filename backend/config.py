@@ -55,17 +55,16 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 
 # ── 3. VALIDATION ──
 def validate():
-    """Call at startup to fail fast if critical env vars are missing (Resend)."""
+    """Warn if email vars are missing; do not crash so the app can stay up (e.g. for Render + UptimeRobot)."""
     missing = []
     if not MAIL_FROM:
         missing.append("MAIL_FROM")
     if not RESEND_API_KEY:
         missing.append("RESEND_API_KEY")
     if missing:
-        msg = f"Missing environment variables: {', '.join(missing)} — set MAIL_FROM and RESEND_API_KEY for email (Resend)."
-        print(f"[ERROR] {msg}")
-        raise ValueError(msg)
-    print(f"[OK] Email config OK (Resend) -> sending as {MAIL_FROM}")
+        print(f"[WARNING] Email will be skipped until you set: {', '.join(missing)} (Resend). App will still run.")
+    else:
+        print(f"[OK] Email config OK (Resend) -> sending as {MAIL_FROM}")
 
 
 # ── 4. DEBUG SUMMARY ──

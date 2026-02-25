@@ -73,10 +73,14 @@ app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 # • allow_credentials=True so /users/me, stats, and claims load with cookies
 # • Login alerts use BackgroundTasks (Resend email in background → instant login)
 # • same-origin-allow-popups header removes Cross-Origin console warnings
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+# Always allow Vercel + localhost so CORS works even if FRONTEND_URL is not set on Render
+frontend_url = os.getenv("FRONTEND_URL", "").strip()
+origins = ["http://localhost:3000", "https://finditapp-v1.vercel.app"]
+if frontend_url and frontend_url not in origins:
+    origins.append(frontend_url)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url, "http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -195,6 +199,12 @@ class ClaimResponse(BaseModel):
 @app.get("/")
 def read_root():
     return {"message": "Findit Backend is running"}
+
+
+@app.get("/health")
+def health():
+    """Lightweight endpoint for UptimeRobot / Render; returns 200 so the service stays 'Up'."""
+    return {"status": "ok"}
 
 @app.get("/test-email")
 def test_email():
