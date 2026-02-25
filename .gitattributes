@@ -1,0 +1,2 @@
+# Ensure requirements.txt is always LF (Unix) so pip on Render/Linux works
+backend/requirements.txt text eol=lf

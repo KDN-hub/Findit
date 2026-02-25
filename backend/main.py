@@ -68,10 +68,12 @@ def run_migrations():
 
 app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 
-# This reads the link you put in Render
+# ─── CORS & security (finalized) ─────────────────────────────────────────
+# • FRONTEND_URL from env for allow_origins (set on Render to your Vercel URL)
+# • allow_credentials=True so /users/me, stats, and claims load with cookies
+# • Login alerts use BackgroundTasks (Resend email in background → instant login)
+# • same-origin-allow-popups header removes Cross-Origin console warnings
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-
-# 1. This handles the RED CORS errors
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[frontend_url, "http://localhost:3000"],
@@ -80,7 +82,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. This handles the CROSS-ORIGIN warnings
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
