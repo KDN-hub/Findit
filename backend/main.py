@@ -16,7 +16,7 @@ MAIL_FROM = config.MAIL_FROM
 # ──────────────────────────────────────────────────────────
 # FASTAPI IMPORTS
 # ──────────────────────────────────────────────────────────
-from fastapi import FastAPI, HTTPException, Depends, status, Body, BackgroundTasks, Query, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Depends, status, Body, BackgroundTasks, Query, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
@@ -69,21 +69,28 @@ def run_migrations():
 
 app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 
-# Define your live frontend URL
-# Make sure this matches your Vercel link EXACTLY (no slash at the end)
-origins = [
-    "http://localhost:3000",
-    "https://finditapp-v1.vercel.app",
-]
-
+# CORS: your exact Vercel link + localhost for local testing
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,     # THIS MUST BE TRUE for users/me endpoints
+    allow_origins=[
+        "http://localhost:3000",
+        "https://finditapp-v1.vercel.app",
+    ],
+    allow_credentials=True,     # Required for /users/me/ endpoints
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],       # This helps the browser see the data
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    # This specifically removes the COOP warning in the console
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    # Optional: Adds extra security for cross-site requests
+    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    return response
+
 
 # Ensure uploads directory exists
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
