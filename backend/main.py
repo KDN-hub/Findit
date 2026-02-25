@@ -69,26 +69,23 @@ def run_migrations():
 
 app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 
-# CORS: your exact Vercel link + localhost for local testing
+# This reads the link you put in Render
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+# 1. This handles the RED CORS errors
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://finditapp-v1.vercel.app",
-    ],
-    allow_credentials=True,     # Required for /users/me/ endpoints
+    allow_origins=[frontend_url, "http://localhost:3000"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
+# 2. This handles the CROSS-ORIGIN warnings
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
-    # This specifically removes the COOP warning in the console
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-    # Optional: Adds extra security for cross-site requests
-    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
     return response
 
 
