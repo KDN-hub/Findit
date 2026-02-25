@@ -69,15 +69,15 @@ def run_migrations():
 
 app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 
-# Define the allowed origins for your live app
-origins = [
-    "http://localhost:3000",
-    "https://finditapp-v1.vercel.app",  # Your specific Vercel URL
-]
+# Define the allowed origins: local + FRONTEND_URL (e.g. Vercel) from env
+_frontend_url = os.getenv("FRONTEND_URL", "").strip()
+origins = ["http://localhost:3000"]
+if _frontend_url:
+    origins.append(_frontend_url)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,            
+    allow_origins=origins,
     allow_credentials=True,           # Required for Google Sign-In sessions
     allow_methods=["*"],              
     allow_headers=["*"],              
