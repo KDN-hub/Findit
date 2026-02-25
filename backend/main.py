@@ -47,34 +47,37 @@ app = FastAPI()
 @app.on_event("startup")
 def run_migrations():
     """Safely add reset_code columns to users table if they don't exist (valid MySQL syntax)."""
+    conn = None
     try:
         from database import connection_pool
         conn = connection_pool.get_connection()
         cursor = conn.cursor()
-        # Check existing columns (works on all MySQL versions; IF NOT EXISTS for ADD COLUMN is MySQL 8.0.12+ only)
-        cursor.execute("""
-            SELECT COLUMN_NAME FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('reset_code', 'reset_code_expires')
-        """)
-        existing = {row[0] for row in cursor.fetchall()}
-        if "reset_code" not in existing:
-            cursor.execute("ALTER TABLE users ADD COLUMN reset_code VARCHAR(4) DEFAULT NULL")
-        if "reset_code_expires" not in existing:
-            cursor.execute("ALTER TABLE users ADD COLUMN reset_code_expires DATETIME DEFAULT NULL")
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print("[MIGRATION] reset_code columns ready.")
+        try:
+            cursor.execute("""
+                SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('reset_code', 'reset_code_expires')
+            """)
+            existing = {row[0] for row in cursor.fetchall()}
+            if "reset_code" not in existing:
+                cursor.execute("ALTER TABLE users ADD COLUMN reset_code VARCHAR(4) DEFAULT NULL")
+            if "reset_code_expires" not in existing:
+                cursor.execute("ALTER TABLE users ADD COLUMN reset_code_expires DATETIME DEFAULT NULL")
+            conn.commit()
+            print("[MIGRATION] reset_code columns ready.")
+        finally:
+            cursor.close()
     except Exception as e:
         print(f"[MIGRATION] Warning: {e}")
+    finally:
+        if conn is not None:
+            conn.close()
 
 app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 
-# CORS: explicit origin only (never allow_origins=["*"] when allow_credentials=True — browser rejects it)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://finditapp-v1.vercel.app"],  # No trailing slash
-    allow_credentials=True,
+    allow_origins=["https://finditapp-v1.vercel.app"],
+    allow_credentials=True,  # THIS MUST BE TRUE for profile data to show
     allow_methods=["*"],
     allow_headers=["*"],
 )

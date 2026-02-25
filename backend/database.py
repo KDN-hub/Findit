@@ -10,11 +10,11 @@ db_config = {
     "port": config.DB_PORT,
 }
 
-# Create a connection pool
+# Create a connection pool (larger size for dashboard spikes)
 try:
     connection_pool = pooling.MySQLConnectionPool(
         pool_name="findit_pool",
-        pool_size=5,
+        pool_size=10,  # Increased from 5 to handle dashboard spikes
         pool_reset_session=True,
         **db_config
     )
@@ -23,14 +23,15 @@ except mysql.connector.Error as err:
     print(f"Error creating connection pool: {err}")
     connection_pool = None
 
+
 def get_db_connection():
     """
-    Get a connection from the pool.
-    This function can be used as a FastAPI dependency.
+    Get a connection from the pool. Uses try/finally so the connection is
+    always returned to the pool via connection.close() — prevents PoolError: pool exhausted.
+    Use as a FastAPI dependency: db=Depends(get_db_connection).
     """
     if not connection_pool:
         raise Exception("Database connection pool is not initialized")
-    
     connection = connection_pool.get_connection()
     try:
         yield connection
