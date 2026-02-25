@@ -201,9 +201,9 @@ def read_root():
     return {"message": "Findit Backend is running"}
 
 
-@app.get("/health")
-def health():
-    """Lightweight endpoint for UptimeRobot / Render; returns 200 so the service stays 'Up'."""
+@app.api_route("/health", methods=["GET", "HEAD"])
+async def health_check():
+    """Ping-friendly health check for UptimeRobot (GET or HEAD). Returns 200 so the service stays 'Up'."""
     return {"status": "ok"}
 
 @app.get("/test-email")
