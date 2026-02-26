@@ -94,3 +94,79 @@ def send_reset_code_email(user_email: str, otp: str):
         print(f"[EMAIL] Reset code sent to {user_email}")
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send reset code to {user_email}: {e}")
+
+
+def send_welcome_email(user_email: str, user_name: str):
+    """
+    Sends a welcome email after signup. Safe to run in a BackgroundTask.
+    """
+    if not RESEND_API_KEY:
+        print("[EMAIL] RESEND_API_KEY not set; skipping welcome email.")
+        return
+    name = user_name or "User"
+    subject = "Welcome to Findit"
+    html_body = f"""\
+<html>
+  <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+    <div style="background-color: #003898; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+      <h1 style="color: #ffffff; margin: 0;">Findit</h1>
+    </div>
+    <div style="padding: 30px; background-color: #f9f9f9; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
+      <h2 style="color: #333;">Welcome, {name}!</h2>
+      <p>Your account has been created. You can now report lost or found items and help others reunite with their belongings.</p>
+      <p>If you did not create this account, please contact support.</p>
+      <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #999;">This is an automated message from Findit. Please do not reply.</p>
+    </div>
+  </body>
+</html>
+"""
+    try:
+        resend.api_key = RESEND_API_KEY
+        resend.Emails.send({
+            "from": SENDER_EMAIL,
+            "to": [user_email],
+            "subject": subject,
+            "html": html_body,
+        })
+        print(f"[EMAIL] Welcome email sent to {user_email}")
+    except Exception as e:
+        print(f"[EMAIL ERROR] Failed to send welcome email to {user_email}: {e}")
+
+
+def send_item_notification(user_email: str, user_name: str, item_title: str, item_id: int):
+    """
+    Sends a confirmation email after reporting an item. Safe to run in a BackgroundTask.
+    """
+    if not RESEND_API_KEY:
+        print("[EMAIL] RESEND_API_KEY not set; skipping item notification.")
+        return
+    name = user_name or "User"
+    subject = "Item reported — Findit"
+    html_body = f"""\
+<html>
+  <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+    <div style="background-color: #003898; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+      <h1 style="color: #ffffff; margin: 0;">Findit</h1>
+    </div>
+    <div style="padding: 30px; background-color: #f9f9f9; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
+      <h2 style="color: #333;">Item reported</h2>
+      <p>Hello <strong>{name}</strong>,</p>
+      <p>Your item &quot;{item_title}&quot; has been successfully reported (ID: {item_id}). Others can now view it and claim if it belongs to them.</p>
+      <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #999;">This is an automated message from Findit. Please do not reply.</p>
+    </div>
+  </body>
+</html>
+"""
+    try:
+        resend.api_key = RESEND_API_KEY
+        resend.Emails.send({
+            "from": SENDER_EMAIL,
+            "to": [user_email],
+            "subject": subject,
+            "html": html_body,
+        })
+        print(f"[EMAIL] Item notification sent to {user_email} for item #{item_id}")
+    except Exception as e:
+        print(f"[EMAIL ERROR] Failed to send item notification to {user_email}: {e}")

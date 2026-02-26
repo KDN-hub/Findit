@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter_Tight } from 'next/font/google';
+import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '@/context/ThemeContext';
 import './globals.css';
 
@@ -44,6 +45,7 @@ export default function RootLayout({
       <body className={`${interTight.variable} ${interTight.className} antialiased`}>
         <ThemeProvider>
           <main className="min-h-dvh">{children}</main>
+          <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
         </ThemeProvider>
       </body>
     </html>

@@ -29,7 +29,7 @@ import shutil
 
 from database import get_db_connection
 from auth_utils import verify_password, get_password_hash, create_access_token, get_current_user
-from email_service import send_login_alert_email, send_reset_code_email
+from email_service import send_login_alert_email, send_reset_code_email, send_welcome_email, send_item_notification
 from routers import messaging
 from init_db import ensure_tables
 
@@ -439,13 +439,25 @@ def _register_user(user_data: RegisterRequest, db):
         cursor.close()
 
 @app.post("/auth/register")
-def register(user_data: RegisterRequest, db=Depends(get_db_connection)):
-    return _register_user(user_data, db)
+def register(
+    user_data: RegisterRequest,
+    background_tasks: BackgroundTasks,
+    db=Depends(get_db_connection),
+):
+    result = _register_user(user_data, db)
+    background_tasks.add_task(send_welcome_email, user_data.email, user_data.full_name)
+    return result
 
 @app.post("/auth/signup")
-def signup(user_data: RegisterRequest, db=Depends(get_db_connection)):
+def signup(
+    user_data: RegisterRequest,
+    background_tasks: BackgroundTasks,
+    db=Depends(get_db_connection),
+):
     """Alias for /auth/register."""
-    return _register_user(user_data, db)
+    result = _register_user(user_data, db)
+    background_tasks.add_task(send_welcome_email, user_data.email, user_data.full_name)
+    return result
 
 
 # ──────────────────────────────────────────────────────────
@@ -574,9 +586,10 @@ async def create_item(
     contact_preference: Optional[str] = Form("in_app"),
     image: Optional[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user),
+    background_tasks: BackgroundTasks,
     db=Depends(get_db_connection),
 ):
-    """Protected route: submit a new lost/found item (multipart/form-data)."""
+    """Protected route: submit a new lost/found item (multipart/form-data). Response returns immediately; item notification email runs in background."""
     cursor = db.cursor(dictionary=True)
     try:
         user_id = current_user["id"]
@@ -609,6 +622,15 @@ async def create_item(
         ))
         db.commit()
         new_id = cursor.lastrowid
+
+        # Queue email in background so response returns immediately
+        background_tasks.add_task(
+            send_item_notification,
+            current_user["sub"],
+            current_user.get("full_name"),
+            title,
+            new_id,
+        )
 
         # Fetch the created item with reporter name
         cursor.execute("""

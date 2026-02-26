@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 import { API_BASE_URL } from '@/lib/config';
 import { getCategoryIcon } from '@/lib/categoryIcons';
 
@@ -29,6 +30,7 @@ export default function ItemDetailsPage() {
   const [item, setItem] = useState<ItemDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [claimPending, setClaimPending] = useState(false);
   const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
@@ -80,17 +82,18 @@ export default function ItemDetailsPage() {
   const handleClaimItem = async () => {
     if (!item) return;
 
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      toast.error('Please log in to claim this item.');
+      router.push('/login');
+      return;
+    }
+
+    // Optimistic update: show Pending immediately
+    setClaimPending(true);
+    setClaiming(true);
+
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        alert("Please log in to claim this item.");
-        router.push('/login');
-        return;
-      }
-
-      setClaiming(true);
-
-      // Call POST /conversations/initiate to start the chat
       const response = await fetch(`${API_BASE_URL}/conversations/initiate`, {
         method: 'POST',
         headers: {
@@ -101,18 +104,17 @@ export default function ItemDetailsPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to initiate conversation');
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || 'Failed to initiate conversation');
       }
 
       const data = await response.json();
-      
-      // Redirect immediately to chat with conversation ID
       router.push(`/messages/${data.conversation_id}`);
-
-    } catch (err: any) {
-      console.error("Claim failed:", err);
-      alert(err.message || 'Failed to start conversation');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to start conversation';
+      setClaimPending(false);
+      setClaiming(false);
+      toast.error(message);
     } finally {
       setClaiming(false);
     }
@@ -205,7 +207,7 @@ export default function ItemDetailsPage() {
         <h1 className="text-2xl font-bold text-[#003898] mb-4">{item.title}</h1>
 
         {/* Status Badge */}
-        <div className="mb-6">
+        <div className="mb-6 flex items-center gap-2 flex-wrap">
           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'Found' ? 'bg-green-100 text-green-800' :
             item.status === 'Lost' ? 'bg-red-100 text-red-800' :
             item.status === 'Recovered' ? 'bg-emerald-100 text-emerald-800' :
@@ -213,6 +215,11 @@ export default function ItemDetailsPage() {
             }`}>
             {item.status}
           </span>
+          {claimPending && (
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+              Pending
+            </span>
+          )}
         </div>
 
         {/* Image */}
@@ -303,6 +310,13 @@ export default function ItemDetailsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
               Recovered
+            </div>
+          ) : claimPending ? (
+            <div className="w-full bg-amber-500 text-white text-center py-3 px-6 rounded-lg font-semibold cursor-default flex items-center justify-center gap-2">
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Pending…
             </div>
           ) : (
             <button

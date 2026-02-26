@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import { API_BASE_URL } from '@/lib/config';
 import { CAMPUS_LOCATIONS } from '@/lib/constants';
 
@@ -48,33 +49,43 @@ export default function ReportItemPage() {
     e.preventDefault();
     setSubmitError(null);
 
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setSubmitError('You must be logged in to report an item.');
+      return;
+    }
+
+    let finalLocation = '';
+    if (campusStatus === 'off_campus') {
+      finalLocation = `Off Campus - ${offCampusLocation.trim()}`;
+    } else {
+      finalLocation = selectedLocation === 'Other' ? customLocation : selectedLocation;
+    }
+    if (!finalLocation.trim()) {
+      setSubmitError('Please provide a location.');
+      return;
+    }
+
+    const imageFile = formData.get('photo') as File;
+    const hasImage = imageFile && imageFile.size > 0;
+    if (reportType === 'found' && !hasImage) {
+      setSubmitError('A photo is required when reporting a found item.');
+      return;
+    }
+
+    // Optimistic update: show "Reported" success UI immediately
+    setShowSuccess(true);
+
     startTransition(async () => {
       try {
-        const form = e.currentTarget;
-        const formData = new FormData(form);
-
-        const token = localStorage.getItem('access_token');
-        if (!token) {
-          setSubmitError('You must be logged in to report an item.');
-          return;
-        }
-
         const body = new FormData();
         body.append('title', formData.get('title') as string);
         body.append('description', formData.get('description') as string);
         body.append('status', reportType === 'found' ? 'Found' : 'Lost');
         body.append('category', formData.get('category') as string);
-
-        let finalLocation = '';
-        if (campusStatus === 'off_campus') {
-          finalLocation = `Off Campus - ${offCampusLocation.trim()}`;
-        } else {
-          finalLocation = selectedLocation === 'Other' ? customLocation : selectedLocation;
-        }
-        if (!finalLocation.trim()) {
-          setSubmitError('Please provide a location.');
-          return;
-        }
         body.append('location', finalLocation);
 
         const keywords = formData.get('keywords') as string;
@@ -85,15 +96,6 @@ export default function ReportItemPage() {
 
         const contactPref = formData.get('contact_preference') as string;
         if (contactPref) body.append('contact_preference', contactPref);
-
-        // Attach the image file if selected
-        const imageFile = formData.get('photo') as File;
-        const hasImage = imageFile && imageFile.size > 0;
-
-        if (reportType === 'found' && !hasImage) {
-          setSubmitError('A photo is required when reporting a found item.');
-          return;
-        }
 
         if (hasImage) {
           body.append('image', imageFile);
@@ -112,15 +114,14 @@ export default function ReportItemPage() {
           throw new Error(errData?.detail || `Server error: ${res.status}`);
         }
 
-        setShowSuccess(true);
-
-        // Redirect after showing success
         setTimeout(() => {
           router.push('/dashboard');
         }, 2000);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+        setShowSuccess(false);
         setSubmitError(message);
+        toast.error(message);
       }
     });
   };
