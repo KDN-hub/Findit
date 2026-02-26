@@ -32,6 +32,20 @@ export default function ItemDetailsPage() {
   const [error, setError] = useState('');
   const [claimPending, setClaimPending] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
+  // Fetch current user when we have a token (to check if viewer is the finder)
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setCurrentUserId(null);
+      return;
+    }
+    fetch(`${API_BASE_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setCurrentUserId(data?.id ?? null))
+      .catch(() => setCurrentUserId(null));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -310,6 +324,10 @@ export default function ItemDetailsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
               Recovered
+            </div>
+          ) : currentUserId !== null && currentUserId === item.user_id ? (
+            <div className="w-full bg-slate-100 border border-slate-200 text-slate-600 text-center py-3 px-6 rounded-lg font-medium">
+              You are the finder of this item. You cannot claim your own post.
             </div>
           ) : claimPending ? (
             <div className="w-full bg-amber-500 text-white text-center py-3 px-6 rounded-lg font-semibold cursor-default flex items-center justify-center gap-2">

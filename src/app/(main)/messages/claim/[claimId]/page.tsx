@@ -48,6 +48,7 @@ export default function ChatPage() {
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const didInitialScrollRef = useRef(false);
 
     // Initialize
     useEffect(() => {
@@ -95,10 +96,15 @@ export default function ChatPage() {
         };
     }, [claimIdStr]);
 
-    // Scroll to bottom
+    // Scroll to bottom when page first loads so the system greeting is the first thing the claimer sees
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages, loading]);
+        if (loading || messages.length === 0 || didInitialScrollRef.current) return;
+        didInitialScrollRef.current = true;
+        const t = requestAnimationFrame(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        });
+        return () => cancelAnimationFrame(t);
+    }, [loading, messages.length]);
 
     const fetchMessages = async () => {
         try {
@@ -226,9 +232,16 @@ export default function ChatPage() {
                     const isMe = msg.sender_id === currentUser.id;
 
                     if (msg.message_type === "system" || msg.message_type === "handover_confirm") {
+                        const isSystemInstruction = msg.sender_name === "Findit System";
                         return (
                             <div key={msg.id} className="flex justify-center my-4">
-                                <span className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full italic text-center">
+                                <span
+                                    className={
+                                        isSystemInstruction
+                                            ? "block max-w-md bg-[#003898] text-white text-sm px-4 py-3 rounded-xl border-2 border-[#002266] font-medium text-center shadow-sm"
+                                            : "bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full italic text-center"
+                                    }
+                                >
                                     {msg.content}
                                 </span>
                             </div>

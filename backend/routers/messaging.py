@@ -74,17 +74,32 @@ def start_claim(
         """
         cursor.execute(insert_claim, (request.item_id, current_user_id, finder_id))
         claim_id = cursor.lastrowid
-        
-        # 4. Insert System Message
+
+        # 4. Insert initial system message
         system_msg = "[System] Claim started. Finder and claimer are now connected."
         insert_msg = """
             INSERT INTO messages (claim_id, sender_id, message_type, content)
             VALUES (%s, %s, 'system', %s)
         """
         cursor.execute(insert_msg, (claim_id, current_user_id, system_msg))
-        
+
+        # 5. Insert automatic greeting from System user (skip if claimer already verified)
+        cursor.execute("SELECT id FROM users WHERE email = 'system@findit.internal' LIMIT 1")
+        system_user = cursor.fetchone()
+        if system_user:
+            # New claim is never verified yet; only add greeting for new claims
+            claimer_name = (current_user.get("full_name") or "there").strip() or "there"
+            greeting = (
+                f"Hi {claimer_name}! Before you text the finder, please click the Verify button at the top of this page "
+                "to answer the security questions about this item. This helps the finder confirm you are the rightful owner!"
+            )
+            cursor.execute(
+                "INSERT INTO messages (claim_id, sender_id, message_type, content) VALUES (%s, %s, 'system', %s)",
+                (claim_id, system_user["id"], greeting)
+            )
+
         db.commit()
-        
+
         return {"success": True, "claim_id": claim_id}
         
     except mysql.connector.Error as err:

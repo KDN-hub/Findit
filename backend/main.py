@@ -84,6 +84,14 @@ def run_migrations():
                 cursor.execute("ALTER TABLE conversations ADD COLUMN claimer_code_created_at DATETIME DEFAULT NULL")
             conn.commit()
             print("[MIGRATION] handover code columns (finder_code, claimer_code, *_created_at) ready.")
+
+            # System user for automatic claim/chat messages (not a real login)
+            cursor.execute(
+                "INSERT IGNORE INTO users (email, full_name, auth_provider) VALUES (%s, %s, %s)",
+                ("system@findit.internal", "Findit System", "email")
+            )
+            conn.commit()
+            print("[MIGRATION] System user ready for claim greetings.")
         finally:
             cursor.close()
     except Exception as e:
@@ -1014,11 +1022,10 @@ def initiate_conversation(
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
             
-        owner_id = item['user_id']
-        
+        owner_id = item['user_id']  # finder_id = item owner who reported it
+
         if owner_id == current_user_id:
-             # Prevent self-chat
-             raise HTTPException(status_code=400, detail="You cannot initiate a conversation with yourself")
+            raise HTTPException(status_code=400, detail="Finders cannot claim their own items.")
 
         # 2. Check if conversation already exists for this item + current_user
         # We check if the current user is EITHER the finder OR the claimer in an existing chat for this item.
