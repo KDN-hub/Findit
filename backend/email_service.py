@@ -1,14 +1,19 @@
 """
 Email sending via Resend API (works on Render free tier; no SMTP ports 25/465/587).
 Uses RESEND_API_KEY from environment. Designed to run in FastAPI BackgroundTasks.
+Use onboarding@resend.dev as From until you have a verified domain in Resend.
 """
 import os
+import traceback
 import resend
 import config  # for MAIL_FROM
 
 # API key from environment (required for Resend)
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
-SENDER_EMAIL = config.MAIL_FROM or "Findit <onboarding@resend.dev>"
+# From: use MAIL_FROM only if set (verified domain); otherwise Resend requires onboarding@resend.dev
+_raw_from = (config.MAIL_FROM or "").strip()
+SENDER_EMAIL = _raw_from if _raw_from else "Findit <onboarding@resend.dev>"
+print(f"[EMAIL] Sender (From) address: {SENDER_EMAIL!r} (use onboarding@resend.dev if no verified domain)")
 
 
 def send_login_alert_email(user_email: str, user_name: str):
@@ -16,9 +21,11 @@ def send_login_alert_email(user_email: str, user_name: str):
     Sends a security alert email on successful login.
     Designed to run as a FastAPI BackgroundTask so it won't block the response.
     """
+    print(f"[EMAIL] send_login_alert_email START to={user_email!r} user_name={user_name!r}")
     if not RESEND_API_KEY:
-        print("[EMAIL] RESEND_API_KEY not set; skipping login alert.")
+        print("[EMAIL] send_login_alert_email ABORT: RESEND_API_KEY not set; skipping login alert.")
         return
+    print(f"[EMAIL] send_login_alert_email Using From: {SENDER_EMAIL!r}")
     name = user_name or "User"
     subject = "Security Alert: New login to Findit"
     html_body = f"""\
@@ -43,16 +50,19 @@ def send_login_alert_email(user_email: str, user_name: str):
 </html>
 """
     try:
+        print("[EMAIL] send_login_alert_email Setting resend.api_key")
         resend.api_key = RESEND_API_KEY
+        print("[EMAIL] send_login_alert_email Calling Resend API (Emails.send)...")
         resend.Emails.send({
             "from": SENDER_EMAIL,
             "to": [user_email],
             "subject": subject,
             "html": html_body,
         })
-        print(f"[EMAIL] Login alert sent to {user_email}")
+        print(f"[EMAIL] send_login_alert_email SUCCESS: login alert sent to {user_email}")
     except Exception as e:
-        print(f"[EMAIL ERROR] Failed to send login alert to {user_email}: {e}")
+        print(f"[EMAIL ERROR] send_login_alert_email FAILED to {user_email}: {e!r}")
+        traceback.print_exc()
 
 
 def send_reset_code_email(user_email: str, otp: str):
@@ -60,9 +70,11 @@ def send_reset_code_email(user_email: str, otp: str):
     Sends the password reset OTP email via Resend.
     Safe to run in a BackgroundTask; logs errors without raising.
     """
+    print(f"[EMAIL] send_reset_code_email START to={user_email!r} otp_len={len(otp)}")
     if not RESEND_API_KEY:
-        print("[EMAIL] RESEND_API_KEY not set; cannot send reset code.")
+        print("[EMAIL] send_reset_code_email ABORT: RESEND_API_KEY not set; cannot send reset code.")
         return
+    print(f"[EMAIL] send_reset_code_email Using From: {SENDER_EMAIL!r}")
     subject = "Your FindIt Reset Code"
     html_body = f"""\
 <html>
@@ -84,25 +96,30 @@ def send_reset_code_email(user_email: str, otp: str):
 </html>
 """
     try:
+        print("[EMAIL] send_reset_code_email Setting resend.api_key")
         resend.api_key = RESEND_API_KEY
+        print("[EMAIL] send_reset_code_email Calling Resend API (Emails.send)...")
         resend.Emails.send({
             "from": SENDER_EMAIL,
             "to": [user_email],
             "subject": subject,
             "html": html_body,
         })
-        print(f"[EMAIL] Reset code sent to {user_email}")
+        print(f"[EMAIL] send_reset_code_email SUCCESS: reset code sent to {user_email}")
     except Exception as e:
-        print(f"[EMAIL ERROR] Failed to send reset code to {user_email}: {e}")
+        print(f"[EMAIL ERROR] send_reset_code_email FAILED to {user_email}: {e!r}")
+        traceback.print_exc()
 
 
 def send_welcome_email(user_email: str, user_name: str):
     """
     Sends a welcome email after signup. Safe to run in a BackgroundTask.
     """
+    print(f"[EMAIL] send_welcome_email START to={user_email!r} user_name={user_name!r}")
     if not RESEND_API_KEY:
-        print("[EMAIL] RESEND_API_KEY not set; skipping welcome email.")
+        print("[EMAIL] send_welcome_email ABORT: RESEND_API_KEY not set; skipping welcome email.")
         return
+    print(f"[EMAIL] send_welcome_email Using From: {SENDER_EMAIL!r}")
     name = user_name or "User"
     subject = "Welcome to Findit"
     html_body = f"""\
@@ -122,25 +139,30 @@ def send_welcome_email(user_email: str, user_name: str):
 </html>
 """
     try:
+        print("[EMAIL] send_welcome_email Setting resend.api_key")
         resend.api_key = RESEND_API_KEY
+        print("[EMAIL] send_welcome_email Calling Resend API (Emails.send)...")
         resend.Emails.send({
             "from": SENDER_EMAIL,
             "to": [user_email],
             "subject": subject,
             "html": html_body,
         })
-        print(f"[EMAIL] Welcome email sent to {user_email}")
+        print(f"[EMAIL] send_welcome_email SUCCESS: welcome email sent to {user_email}")
     except Exception as e:
-        print(f"[EMAIL ERROR] Failed to send welcome email to {user_email}: {e}")
+        print(f"[EMAIL ERROR] send_welcome_email FAILED to {user_email}: {e!r}")
+        traceback.print_exc()
 
 
 def send_item_notification(user_email: str, user_name: str, item_title: str, item_id: int):
     """
     Sends a confirmation email after reporting an item. Safe to run in a BackgroundTask.
     """
+    print(f"[EMAIL] send_item_notification START to={user_email!r} item_id={item_id} title={item_title!r}")
     if not RESEND_API_KEY:
-        print("[EMAIL] RESEND_API_KEY not set; skipping item notification.")
+        print("[EMAIL] send_item_notification ABORT: RESEND_API_KEY not set; skipping item notification.")
         return
+    print(f"[EMAIL] send_item_notification Using From: {SENDER_EMAIL!r}")
     name = user_name or "User"
     subject = "Item reported — Findit"
     html_body = f"""\
@@ -160,13 +182,16 @@ def send_item_notification(user_email: str, user_name: str, item_title: str, ite
 </html>
 """
     try:
+        print("[EMAIL] send_item_notification Setting resend.api_key")
         resend.api_key = RESEND_API_KEY
+        print("[EMAIL] send_item_notification Calling Resend API (Emails.send)...")
         resend.Emails.send({
             "from": SENDER_EMAIL,
             "to": [user_email],
             "subject": subject,
             "html": html_body,
         })
-        print(f"[EMAIL] Item notification sent to {user_email} for item #{item_id}")
+        print(f"[EMAIL] send_item_notification SUCCESS: item notification sent to {user_email} for item #{item_id}")
     except Exception as e:
-        print(f"[EMAIL ERROR] Failed to send item notification to {user_email}: {e}")
+        print(f"[EMAIL ERROR] send_item_notification FAILED to {user_email}: {e!r}")
+        traceback.print_exc()

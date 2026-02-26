@@ -89,6 +89,9 @@ export default function ProfilePage() {
   // Data state
   const [reportedItems, setReportedItems] = useState<ReportedItem[]>([]);
   const [claimedItems, setClaimedItems] = useState<ClaimedItem[]>([]);
+  const [statsLoaded, setStatsLoaded] = useState(false);
+  const [reportedLoaded, setReportedLoaded] = useState(false);
+  const [claimsLoaded, setClaimsLoaded] = useState(false);
 
   // ── ALL useEffect HOOKS ──
   useEffect(() => {
@@ -108,7 +111,7 @@ export default function ProfilePage() {
       })
       .then((data) => {
         if (data) setUser(data);
-        setLoading(false); // Only stop generic loading here for now
+        setLoading(false);
       })
       .catch(async () => {
         await signOutAction();
@@ -128,19 +131,22 @@ export default function ProfilePage() {
           });
         }
       })
-      .catch((err) => console.error('Error fetching stats:', err));
+      .catch((err) => console.error('Error fetching stats:', err))
+      .finally(() => setStatsLoaded(true));
 
     // Fetch Reported Items
     fetch(`${API_BASE_URL}/users/me/items`, { headers })
       .then(res => res.ok ? res.json() : [])
       .then(data => setReportedItems(data))
-      .catch(err => console.error('Error fetching items:', err));
+      .catch(err => console.error('Error fetching items:', err))
+      .finally(() => setReportedLoaded(true));
 
     // Fetch Claims
     fetch(`${API_BASE_URL}/users/me/claims`, { headers })
       .then(res => res.ok ? res.json() : [])
       .then(data => setClaimedItems(data))
-      .catch(err => console.error('Error fetching claims:', err));
+      .catch(err => console.error('Error fetching claims:', err))
+      .finally(() => setClaimsLoaded(true));
 
   }, [router]);
 
@@ -259,20 +265,41 @@ export default function ProfilePage() {
       {/* Stats */}
       <div className="px-4 -mt-4">
         <div className="bg-white rounded-2xl shadow-lg p-4 flex items-center justify-around">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-[#003898]">{stats.reported}</p>
-            <p className="text-xs text-slate-500">Reported</p>
-          </div>
-          <div className="w-px h-10 bg-slate-200" />
-          <div className="text-center">
-            <p className="text-2xl font-bold text-[#003898]">{stats.claims}</p>
-            <p className="text-xs text-slate-500">Claims</p>
-          </div>
-          <div className="w-px h-10 bg-slate-200" />
-          <div className="text-center">
-            <p className="text-2xl font-bold text-[#003898]">{stats.reunited}</p>
-            <p className="text-xs text-slate-500">Reunited</p>
-          </div>
+          {!statsLoaded ? (
+            <>
+              <div className="text-center animate-pulse">
+                <div className="h-8 w-10 bg-slate-200 rounded mx-auto mb-1" />
+                <div className="h-3 w-14 bg-slate-100 rounded mx-auto" />
+              </div>
+              <div className="w-px h-10 bg-slate-200" />
+              <div className="text-center animate-pulse">
+                <div className="h-8 w-10 bg-slate-200 rounded mx-auto mb-1" />
+                <div className="h-3 w-12 bg-slate-100 rounded mx-auto" />
+              </div>
+              <div className="w-px h-10 bg-slate-200" />
+              <div className="text-center animate-pulse">
+                <div className="h-8 w-10 bg-slate-200 rounded mx-auto mb-1" />
+                <div className="h-3 w-14 bg-slate-100 rounded mx-auto" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-[#003898]">{stats.reported}</p>
+                <p className="text-xs text-slate-500">Reported</p>
+              </div>
+              <div className="w-px h-10 bg-slate-200" />
+              <div className="text-center">
+                <p className="text-2xl font-bold text-[#003898]">{stats.claims}</p>
+                <p className="text-xs text-slate-500">Claims</p>
+              </div>
+              <div className="w-px h-10 bg-slate-200" />
+              <div className="text-center">
+                <p className="text-2xl font-bold text-[#003898]">{stats.reunited}</p>
+                <p className="text-xs text-slate-500">Reunited</p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -304,7 +331,21 @@ export default function ProfilePage() {
       <div className="px-4 mt-4">
         {activeTab === 'reported' ? (
           <div className="space-y-3">
-            {reportedItems.length === 0 ? (
+            {!reportedLoaded ? (
+              <>
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl animate-pulse">
+                    <div className="w-16 h-16 rounded-xl bg-slate-200 shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="h-4 w-16 bg-slate-200 rounded" />
+                      <div className="h-4 w-3/4 bg-slate-200 rounded" />
+                      <div className="h-3 w-1/2 bg-slate-100 rounded" />
+                    </div>
+                    <div className="h-3 w-12 bg-slate-200 rounded shrink-0" />
+                  </div>
+                ))}
+              </>
+            ) : reportedItems.length === 0 ? (
               <div className="py-12 text-center">
                 <div className="w-16 h-16 bg-[#F1F5F9] rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -359,7 +400,21 @@ export default function ProfilePage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {claimedItems.length === 0 ? (
+            {!claimsLoaded ? (
+              <>
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl animate-pulse">
+                    <div className="w-16 h-16 rounded-xl bg-slate-200 shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="h-4 w-16 bg-slate-200 rounded" />
+                      <div className="h-4 w-3/4 bg-slate-200 rounded" />
+                      <div className="h-3 w-1/2 bg-slate-100 rounded" />
+                    </div>
+                    <div className="h-3 w-12 bg-slate-200 rounded shrink-0" />
+                  </div>
+                ))}
+              </>
+            ) : claimedItems.length === 0 ? (
               <div className="py-12 text-center">
                 <div className="w-16 h-16 bg-[#F1F5F9] rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

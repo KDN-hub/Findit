@@ -45,6 +45,7 @@ export default function DashboardPage() {
 
   const [todaysItems, setTodaysItems] = useState<ApiItem[]>([]);
   const [previousItems, setPreviousItems] = useState<ApiItem[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(true);
 
   // Check auth and fetch user profile
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function DashboardPage() {
 
   // Fetch real items from API
   useEffect(() => {
+    setItemsLoading(true);
     fetch(`${API_BASE_URL}/items`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data: ApiItem[]) => {
@@ -101,7 +103,8 @@ export default function DashboardPage() {
         setTodaysItems(todays);
         setPreviousItems(older.slice(0, 5));
       })
-      .catch((err) => console.error('Failed to fetch items:', err));
+      .catch((err) => console.error('Failed to fetch items:', err))
+      .finally(() => setItemsLoading(false));
   }, []);
 
   // Auto-scroll carousel
@@ -237,7 +240,11 @@ export default function DashboardPage() {
             className="flex overflow-x-hidden rounded-2xl bg-[#F1F5F9]"
             style={{ scrollSnapType: 'x mandatory' }}
           >
-            {todaysItems.length > 0 ? (
+            {itemsLoading ? (
+              <div className="w-full flex-shrink-0 h-64 flex items-center justify-center rounded-2xl bg-slate-100 animate-pulse">
+                <div className="w-12 h-12 border-2 border-[#003898]/30 border-t-[#003898] rounded-full animate-spin" />
+              </div>
+            ) : todaysItems.length > 0 ? (
               todaysItems.map((item) => (
                 <Link
                   key={item.id}
@@ -325,7 +332,21 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-3">
-          {previousItems.length > 0 ? (
+          {itemsLoading ? (
+            <>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-3 bg-[#F8FAFC] rounded-2xl animate-pulse">
+                  <div className="w-24 h-24 rounded-xl bg-slate-200 shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="h-3 w-2/3 bg-slate-200 rounded" />
+                    <div className="h-4 w-full bg-slate-200 rounded" />
+                    <div className="h-3 w-1/2 bg-slate-200 rounded" />
+                  </div>
+                  <div className="w-12 h-4 bg-slate-200 rounded shrink-0" />
+                </div>
+              ))}
+            </>
+          ) : previousItems.length > 0 ? (
             previousItems.map((item) => (
               <Link
                 key={item.id}
