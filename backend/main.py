@@ -576,6 +576,7 @@ def reset_password(data: ResetPasswordRequest, db=Depends(get_db_connection)):
 
 @app.post("/items", response_model=ItemResponse)
 async def create_item(
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     description: Optional[str] = Form(None),
     status: str = Form("Found"),
@@ -586,7 +587,6 @@ async def create_item(
     contact_preference: Optional[str] = Form("in_app"),
     image: Optional[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user),
-    background_tasks: BackgroundTasks,
     db=Depends(get_db_connection),
 ):
     """Protected route: submit a new lost/found item (multipart/form-data). Response returns immediately; item notification email runs in background."""
