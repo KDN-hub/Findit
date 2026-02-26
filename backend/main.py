@@ -3,6 +3,7 @@
 # ──────────────────────────────────────────────────────────
 import os
 import random
+import secrets
 from datetime import datetime, timedelta
 import config  # loads .env automatically on import
 
@@ -46,13 +47,14 @@ app = FastAPI()
 
 @app.on_event("startup")
 def run_migrations():
-    """Safely add reset_code columns to users table if they don't exist (valid MySQL syntax)."""
+    """Safely add reset_code columns to users and handover columns to conversations if they don't exist."""
     conn = None
     try:
         from database import connection_pool
         conn = connection_pool.get_connection()
         cursor = conn.cursor()
         try:
+            # Users: reset_code, reset_code_expires
             cursor.execute("""
                 SELECT COLUMN_NAME FROM information_schema.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('reset_code', 'reset_code_expires')
@@ -64,6 +66,24 @@ def run_migrations():
                 cursor.execute("ALTER TABLE users ADD COLUMN reset_code_expires DATETIME DEFAULT NULL")
             conn.commit()
             print("[MIGRATION] reset_code columns ready.")
+
+            # Conversations: handover codes and timestamps (expire after 15 min)
+            cursor.execute("""
+                SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'conversations'
+                AND COLUMN_NAME IN ('finder_code', 'claimer_code', 'finder_code_created_at', 'claimer_code_created_at')
+            """)
+            conv_cols = {row[0] for row in cursor.fetchall()}
+            if "finder_code" not in conv_cols:
+                cursor.execute("ALTER TABLE conversations ADD COLUMN finder_code VARCHAR(10) DEFAULT NULL")
+            if "claimer_code" not in conv_cols:
+                cursor.execute("ALTER TABLE conversations ADD COLUMN claimer_code VARCHAR(10) DEFAULT NULL")
+            if "finder_code_created_at" not in conv_cols:
+                cursor.execute("ALTER TABLE conversations ADD COLUMN finder_code_created_at DATETIME DEFAULT NULL")
+            if "claimer_code_created_at" not in conv_cols:
+                cursor.execute("ALTER TABLE conversations ADD COLUMN claimer_code_created_at DATETIME DEFAULT NULL")
+            conn.commit()
+            print("[MIGRATION] handover code columns (finder_code, claimer_code, *_created_at) ready.")
         finally:
             cursor.close()
     except Exception as e:
@@ -1371,6 +1391,11 @@ def get_conversations_legacy(
 class HandoverVerifyRequest(BaseModel):
     code: str
 
+def _generate_handover_code() -> str:
+    """Generate a 4-digit handover code using secrets for cryptographic randomness."""
+    return str(secrets.randbelow(10**4)).zfill(4)
+
+
 @app.post("/conversations/{conversation_id}/handover/start")
 def start_handover(
     conversation_id: int,
@@ -1379,44 +1404,43 @@ def start_handover(
 ):
     """
     Generate handover codes for both users if they don't exist yet.
+    Sets finder_code_created_at and claimer_code_created_at to UTC now for 15-min expiry.
     Returns only the current user's code.
     """
     cursor = db.cursor(dictionary=True)
     try:
         current_user_id = current_user['id']
-        
+        now_utc = datetime.utcnow()
+
         # 1. Verify access to conversation
-        cursor.execute("SELECT finder_id, claimer_id, finder_code, claimer_code FROM conversations WHERE id = %s", (conversation_id,))
+        cursor.execute(
+            "SELECT finder_id, claimer_id, finder_code, claimer_code FROM conversations WHERE id = %s",
+            (conversation_id,),
+        )
         convo = cursor.fetchone()
-        
+
         if not convo:
             raise HTTPException(status_code=404, detail="Conversation not found")
-        
+
         if current_user_id not in (convo['finder_id'], convo['claimer_id']):
             raise HTTPException(status_code=403, detail="Not authorized")
-        
-        # 2. Generate codes if they don't exist
-        import random
-        
-        finder_code = convo['finder_code']
-        claimer_code = convo['claimer_code']
-        
-        if not finder_code:
-            finder_code = f"{random.randint(1000, 9999)}"
-        
-        if not claimer_code:
-            claimer_code = f"{random.randint(1000, 9999)}"
-        
-        # 3. Update database with codes
+
+        # 2. Generate new codes with secrets (always regenerate so created_at is fresh)
+        finder_code = _generate_handover_code()
+        claimer_code = _generate_handover_code()
+
+        # 3. Update database with codes and UTC timestamps for 15-min expiry
         cursor.execute(
-            "UPDATE conversations SET finder_code = %s, claimer_code = %s WHERE id = %s",
-            (finder_code, claimer_code, conversation_id)
+            """UPDATE conversations SET
+               finder_code = %s, claimer_code = %s,
+               finder_code_created_at = %s, claimer_code_created_at = %s
+               WHERE id = %s""",
+            (finder_code, claimer_code, now_utc, now_utc, conversation_id),
         )
         db.commit()
-        
+
         # 4. Return only the current user's code
         my_code = finder_code if current_user_id == convo['finder_id'] else claimer_code
-        
         return {"my_code": my_code}
 
     except mysql.connector.Error as err:
@@ -1434,57 +1458,74 @@ def verify_handover(
 ):
     """
     Verify the other person's handover code.
-    On success, posts a system message and optionally marks item as completed.
+    Rejects if code is older than 15 minutes. On success, clears codes and timestamps, then marks item Recovered.
     """
     cursor = db.cursor(dictionary=True)
     try:
         current_user_id = current_user['id']
         input_code = verify_data.code.strip()
-        
-        # 1. Verify access to conversation and get codes
+
+        # 1. Verify access to conversation and get codes + timestamps
         cursor.execute("""
-            SELECT c.finder_id, c.claimer_id, c.finder_code, c.claimer_code, c.item_id,
-                   uf.full_name as finder_name, uc.full_name as claimer_name
+            SELECT c.finder_id, c.claimer_id, c.finder_code, c.claimer_code,
+                   c.finder_code_created_at, c.claimer_code_created_at, c.item_id,
+                   uf.full_name AS finder_name, uc.full_name AS claimer_name
             FROM conversations c
             JOIN users uf ON c.finder_id = uf.id
             JOIN users uc ON c.claimer_id = uc.id
             WHERE c.id = %s
         """, (conversation_id,))
         convo = cursor.fetchone()
-        
+
         if not convo:
             raise HTTPException(status_code=404, detail="Conversation not found")
-        
+
         if current_user_id not in (convo['finder_id'], convo['claimer_id']):
             raise HTTPException(status_code=403, detail="Not authorized")
-        
-        # 2. Determine which code to check (the other person's code)
+
+        # 2. Determine which code we're verifying (the other person's)
         is_finder = current_user_id == convo['finder_id']
         other_person_code = convo['claimer_code'] if is_finder else convo['finder_code']
+        other_code_created_at = convo['claimer_code_created_at'] if is_finder else convo['finder_code_created_at']
         other_person_name = convo['claimer_name'] if is_finder else convo['finder_name']
         receiver_id = convo['claimer_id'] if is_finder else convo['finder_id']
         item_id = convo['item_id']
-        
-        # 3. Verify the code
+
+        # 3. Require code to exist
         if not other_person_code:
             raise HTTPException(status_code=400, detail="The other person hasn't started handover yet")
-        
+
+        # 4. Expiry: code must be no older than 15 minutes (UTC)
+        if other_code_created_at:
+            expiry = other_code_created_at + timedelta(minutes=15)
+            if datetime.utcnow() > expiry:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Verification code has expired. Please generate a new one.",
+                )
+
         if input_code != other_person_code:
             raise HTTPException(status_code=400, detail="Invalid code. Please check and try again.")
-        
-        # 4. Post success message to chat
-        message_content = f"✅ Handover Verified! {other_person_name} has confirmed the code."
-        
+
+        # 5. Clear codes and timestamps immediately after successful verify (security)
+        cursor.execute("""
+            UPDATE conversations SET
+            finder_code = NULL, claimer_code = NULL,
+            finder_code_created_at = NULL, claimer_code_created_at = NULL
+            WHERE id = %s
+        """, (conversation_id,))
+
+        # 6. Post success message to chat
+        message_content = f"✅ Handover Verified! {other_person_name or 'Other party'} has confirmed the code."
         cursor.execute("""
             INSERT INTO messages (sender_id, receiver_id, item_id, content)
             VALUES (%s, %s, %s, %s)
         """, (current_user_id, receiver_id, item_id, message_content))
-        
-        # 5. Optionally update item status to 'Recovered' (or 'COMPLETED' if that status exists)
+
+        # 7. Mark item as Recovered
         cursor.execute("UPDATE items SET status = 'Recovered' WHERE id = %s", (item_id,))
-        
+
         db.commit()
-        
         return {"status": "success", "message": "Handover verified successfully"}
 
     except HTTPException:

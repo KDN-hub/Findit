@@ -1,5 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '@/lib/config';
+
+const CODE_EXPIRY_SECONDS = 15 * 60; // 15 minutes
+
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 export interface HandoverModalProps {
   isOpen: boolean;
@@ -15,14 +23,9 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
 
-  useEffect(() => {
-    if (isOpen && conversationId) {
-      fetchMyCode();
-    }
-  }, [isOpen, conversationId]);
-
-  const fetchMyCode = async () => {
+  const fetchMyCode = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -47,13 +50,32 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
 
       const data = await response.json();
       setMyCode(data.my_code);
-    } catch (err: any) {
-      console.error("Fetch code error:", err);
-      setError(err.message || "Failed to load your code");
+      setSecondsRemaining(CODE_EXPIRY_SECONDS);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load your code';
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (isOpen && conversationId) {
+      fetchMyCode();
+    }
+  }, [isOpen, conversationId, fetchMyCode]);
+
+  // Countdown timer: decrement every second while we have a code and time left
+  useEffect(() => {
+    if (!myCode || secondsRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setSecondsRemaining((prev) => {
+        const next = prev - 1;
+        return next < 0 ? 0 : next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [myCode, secondsRemaining]);
 
   const handleSubmit = async () => {
     if (!otherCode.trim() || otherCode.length !== 4) {
@@ -85,13 +107,14 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
         throw new Error(errorData.detail || 'Failed to verify code');
       }
 
+      setError('');
       alert('Verification Successful!');
       onSuccess?.();
       onClose();
 
-    } catch (err: any) {
-      console.error("Verify code error:", err);
-      setError(err.message || "Failed to verify code");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to verify code';
+      setError(message);
     } finally {
       setSubmitting(false);
     }
@@ -100,9 +123,13 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
   const handleClose = () => {
     setMyCode('');
     setOtherCode('');
+    setSecondsRemaining(0);
     setError('');
     onClose();
   };
+
+  const codeExpired = secondsRemaining <= 0 && !!myCode;
+  const showCode = !!myCode && !codeExpired;
 
   if (!isOpen) return null;
 
@@ -135,11 +162,28 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
             <div className="flex items-center justify-center py-8">
               <div className="w-8 h-8 border-4 border-[#003898] border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : codeExpired ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+              <p className="text-sm text-amber-800 mb-3">Code expired. Generate a new one so the other person can verify.</p>
+              <button
+                type="button"
+                onClick={fetchMyCode}
+                disabled={loading}
+                className="w-full py-3 px-4 bg-[#003898] hover:bg-[#002266] disabled:opacity-50 text-white font-semibold rounded-xl transition-colors"
+              >
+                Regenerate Code
+              </button>
+            </div>
           ) : (
             <div className="bg-[#F1F5F9] rounded-xl p-6 text-center">
               <p className="text-4xl font-bold text-[#003898] tracking-wider">
-                {myCode || '----'}
+                {showCode ? myCode : '----'}
               </p>
+              {showCode && (
+                <p className="text-sm text-slate-500 mt-2">
+                  Expires in <span className="font-semibold text-slate-700">{formatCountdown(secondsRemaining)}</span>
+                </p>
+              )}
             </div>
           )}
         </div>
