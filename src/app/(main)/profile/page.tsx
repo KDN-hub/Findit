@@ -4,8 +4,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import { API_BASE_URL } from '@/lib/config';
 import { signOutAction } from '@/actions/auth';
+import { ItemImage } from '@/components/ItemImage';
+
+const PROFILE_CACHE_KEY = 'findit_profile_cache';
 
 interface UserProfile {
   id: number;
@@ -93,7 +97,7 @@ export default function ProfilePage() {
   const [reportedLoaded, setReportedLoaded] = useState(false);
   const [claimsLoaded, setClaimsLoaded] = useState(false);
 
-  // ── ALL useEffect HOOKS ──
+  // ── Stale-while-revalidate: show cache first, then fetch ──
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (!token) {
@@ -101,16 +105,53 @@ export default function ProfilePage() {
       return;
     }
 
-    const headers = { 'Authorization': `Bearer ${token}` };
+    const mergeCache = (partial: Record<string, unknown>) => {
+      try {
+        const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+        const prev = raw ? JSON.parse(raw) : {};
+        localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ ...prev, ...partial }));
+      } catch {
+        // ignore
+      }
+    };
 
-    // Fetch user profile
+    // 1. Restore from cache immediately
+    try {
+      const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw) as {
+          user?: UserProfile;
+          stats?: { reported: number; claims: number; reunited: number };
+          reportedItems?: ReportedItem[];
+          claimedItems?: ClaimedItem[];
+        };
+        if (cached.user) setUser(cached.user);
+        if (cached.stats) setStats(cached.stats);
+        if (Array.isArray(cached.reportedItems)) setReportedItems(cached.reportedItems);
+        if (Array.isArray(cached.claimedItems)) setClaimedItems(cached.claimedItems);
+        setLoading(false);
+        setStatsLoaded(!!cached.stats);
+        setReportedLoaded(true);
+        setClaimsLoaded(true);
+      }
+    } catch {
+      // ignore
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+    const showOffline = () => toast('Offline Mode — showing cached data', { id: 'offline-profile', icon: '📶', duration: 3000 });
+
+    // 2. Fetch user
     fetch(`${API_BASE_URL}/users/me`, { headers })
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch user');
         return res.json();
       })
       .then((data) => {
-        if (data) setUser(data);
+        if (data) {
+          setUser(data);
+          mergeCache({ user: data });
+        }
         setLoading(false);
       })
       .catch(async () => {
@@ -119,35 +160,38 @@ export default function ProfilePage() {
         router.replace('/login');
       });
 
-    // Fetch user statistics
+    // 3. Fetch stats
     fetch(`${API_BASE_URL}/users/me/stats`, { headers })
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (data) {
-          setStats({
-            reported: data.reported || 0,
-            claims: data.claims || 0,
-            reunited: data.reunited || 0,
-          });
+          const s = { reported: data.reported || 0, claims: data.claims || 0, reunited: data.reunited || 0 };
+          setStats(s);
+          mergeCache({ stats: s });
         }
       })
-      .catch((err) => console.error('Error fetching stats:', err))
+      .catch(showOffline)
       .finally(() => setStatsLoaded(true));
 
-    // Fetch Reported Items
+    // 4. Fetch reported items
     fetch(`${API_BASE_URL}/users/me/items`, { headers })
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setReportedItems(data))
-      .catch(err => console.error('Error fetching items:', err))
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => {
+        setReportedItems(data);
+        mergeCache({ reportedItems: data });
+      })
+      .catch(showOffline)
       .finally(() => setReportedLoaded(true));
 
-    // Fetch Claims
+    // 5. Fetch claims
     fetch(`${API_BASE_URL}/users/me/claims`, { headers })
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setClaimedItems(data))
-      .catch(err => console.error('Error fetching claims:', err))
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => {
+        setClaimedItems(data);
+        mergeCache({ claimedItems: data });
+      })
+      .catch(showOffline)
       .finally(() => setClaimsLoaded(true));
-
   }, [router]);
 
   // ── HELPER FUNCTIONS ──
@@ -368,7 +412,7 @@ export default function ProfilePage() {
                   {/* Image */}
                   <div className="w-16 h-16 bg-[#E8ECF4] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
                     {item.image_url ? (
-                      <img src={`${API_BASE_URL}${item.image_url}`} alt={item.title} className="w-full h-full object-cover rounded-xl" />
+                      <ItemImage src={item.image_url} alt={item.title} className="w-full h-full object-cover rounded-xl" loading="lazy" />
                     ) : (
                       <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
@@ -437,7 +481,7 @@ export default function ProfilePage() {
                   {/* Image */}
                   <div className="w-16 h-16 bg-[#E8ECF4] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
                     {item.photo_url ? (
-                      <img src={item.photo_url.startsWith('/') ? `${API_BASE_URL}${item.photo_url}` : item.photo_url} alt={item.title} className="w-full h-full object-cover rounded-xl" />
+                      <ItemImage src={item.photo_url} alt={item.title} className="w-full h-full object-cover rounded-xl" loading="lazy" />
                     ) : (
                       <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />

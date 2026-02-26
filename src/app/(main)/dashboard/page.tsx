@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { formatTimeAgo } from '@/services/items';
 import { API_BASE_URL } from '@/lib/config';
 import { signOutAction } from '@/actions/auth';
-import { getCategoryIcon } from '@/lib/categoryIcons';
+import { DashboardItemsSection } from './DashboardItemsSection';
+import { DashboardItemsFallback } from './DashboardItemsFallback';
+
+const DASHBOARD_CACHE_KEY = 'findit_dashboard_cache';
 
 interface UserProfile {
   id: number;
@@ -18,24 +20,8 @@ interface UserProfile {
   auth_provider: string;
 }
 
-interface ApiItem {
-  id: number;
-  title: string;
-  description: string | null;
-  status: string;
-  category: string | null;
-  location: string | null;
-  keywords: string | null;
-  date_found: string | null;
-  image_url: string | null;
-  reporter_name: string | null;
-  created_at: string | null;
-}
-
 export default function DashboardPage() {
   const router = useRouter();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const carouselRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -43,11 +29,7 @@ export default function DashboardPage() {
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [todaysItems, setTodaysItems] = useState<ApiItem[]>([]);
-  const [previousItems, setPreviousItems] = useState<ApiItem[]>([]);
-  const [itemsLoading, setItemsLoading] = useState(true);
-
-  // Check auth and fetch user profile
+  // Auth + user (and cache for greeting); items are loaded via Suspense in DashboardItemsSection
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (!token) {
@@ -55,9 +37,17 @@ export default function DashboardPage() {
       return;
     }
 
-    fetch(`${API_BASE_URL}/users/me`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    })
+    try {
+      const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw) as { user?: UserProfile };
+        if (cached.user) setUser(cached.user);
+      }
+    } catch {
+      // ignore
+    }
+
+    fetch(`${API_BASE_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then(async (res) => {
         if (!res.ok) {
           await signOutAction();
@@ -68,7 +58,16 @@ export default function DashboardPage() {
         return res.json();
       })
       .then((data) => {
-        if (data) setUser(data);
+        if (data) {
+          setUser(data);
+          try {
+            const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+            const prev = raw ? JSON.parse(raw) : {};
+            localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ ...prev, user: data }));
+          } catch {
+            // ignore
+          }
+        }
         setAuthChecked(true);
       })
       .catch(async () => {
@@ -77,55 +76,6 @@ export default function DashboardPage() {
         router.replace('/login');
       });
   }, [router]);
-
-  // Fetch real items from API
-  useEffect(() => {
-    setItemsLoading(true);
-    fetch(`${API_BASE_URL}/items`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: ApiItem[]) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const todays: ApiItem[] = [];
-        const older: ApiItem[] = [];
-
-        for (const item of data) {
-          const itemDate = new Date(item.created_at || '');
-          itemDate.setHours(0, 0, 0, 0);
-          if (itemDate.getTime() === today.getTime()) {
-            todays.push(item);
-          } else {
-            older.push(item);
-          }
-        }
-
-        setTodaysItems(todays);
-        setPreviousItems(older.slice(0, 5));
-      })
-      .catch((err) => console.error('Failed to fetch items:', err))
-      .finally(() => setItemsLoading(false));
-  }, []);
-
-  // Auto-scroll carousel
-  useEffect(() => {
-    if (todaysItems.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % todaysItems.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [todaysItems.length]);
-
-  // Scroll to current slide
-  useEffect(() => {
-    if (carouselRef.current) {
-      const slideWidth = carouselRef.current.offsetWidth;
-      carouselRef.current.scrollTo({
-        left: currentSlide * slideWidth,
-        behavior: 'smooth',
-      });
-    }
-  }, [currentSlide]);
 
   // Close search when clicking outside
   useEffect(() => {
@@ -232,161 +182,10 @@ export default function DashboardPage() {
         )}
       </header>
 
-      {/* Today's Items Carousel */}
-      <section className="px-4 mb-6">
-        <div className="relative">
-          <div
-            ref={carouselRef}
-            className="flex overflow-x-hidden rounded-2xl bg-[#F1F5F9]"
-            style={{ scrollSnapType: 'x mandatory' }}
-          >
-            {itemsLoading ? (
-              <div className="w-full flex-shrink-0 h-64 flex items-center justify-center rounded-2xl bg-slate-100 animate-pulse">
-                <div className="w-12 h-12 border-2 border-[#003898]/30 border-t-[#003898] rounded-full animate-spin" />
-              </div>
-            ) : todaysItems.length > 0 ? (
-              todaysItems.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/items/${item.id}`}
-                  className="w-full flex-shrink-0 h-64 flex flex-col items-center justify-center"
-                  style={{ scrollSnapAlign: 'start' }}
-                >
-                  {(() => {
-                    if (item.image_url) {
-                      return (
-                        <img
-                          src={`${API_BASE_URL}${item.image_url}`}
-                          alt={item.title}
-                          className="w-full h-full object-cover"
-                        />
-                      );
-                    }
-                    const { Icon, bg, color } = getCategoryIcon(item.category);
-                    return (
-                      <div className={`w-full h-full flex flex-col items-center justify-center gap-3 ${bg}`}>
-                        <Icon className={`w-16 h-16 ${color}`} strokeWidth={1.2} />
-                        <p className="text-sm font-semibold text-slate-500">{item.title}</p>
-                        <p className="text-[11px] text-slate-400">{item.location}</p>
-                      </div>
-                    );
-                  })()}
-                </Link>
-              ))
-            ) : (
-              <div className="w-full h-64 flex items-center justify-center text-slate-400">
-                <p>No items reported today</p>
-              </div>
-            )}
-          </div>
-
-          {/* Navigation Buttons */}
-          {todaysItems.length > 1 && (
-            <>
-              <button
-                onClick={() => setCurrentSlide((prev) => (prev > 0 ? prev - 1 : todaysItems.length - 1))}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center text-[#003898] hover:bg-white hover:scale-110 active:scale-95 transition-all z-10"
-                aria-label="Previous item"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setCurrentSlide((prev) => (prev < todaysItems.length - 1 ? prev + 1 : 0))}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center text-[#003898] hover:bg-white hover:scale-110 active:scale-95 transition-all z-10"
-                aria-label="Next item"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </>
-          )}
-
-          {/* Carousel Indicators */}
-          {todaysItems.length > 1 && (
-            <div className="flex justify-center gap-1.5 mt-3">
-              {todaysItems.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentSlide(index)}
-                  className={`w-2 h-2 rounded-full transition-all ${index === currentSlide
-                    ? 'bg-[#003898] w-6'
-                    : 'bg-slate-300'
-                    }`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Previously Section */}
-      <section className="px-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-[#003898]">Previously</h2>
-          <Link href="/items" className="text-sm text-[#003898] font-medium underline">
-            See more
-          </Link>
-        </div>
-
-        <div className="space-y-3">
-          {itemsLoading ? (
-            <>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-4 p-3 bg-[#F8FAFC] rounded-2xl animate-pulse">
-                  <div className="w-24 h-24 rounded-xl bg-slate-200 shrink-0" />
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="h-3 w-2/3 bg-slate-200 rounded" />
-                    <div className="h-4 w-full bg-slate-200 rounded" />
-                    <div className="h-3 w-1/2 bg-slate-200 rounded" />
-                  </div>
-                  <div className="w-12 h-4 bg-slate-200 rounded shrink-0" />
-                </div>
-              ))}
-            </>
-          ) : previousItems.length > 0 ? (
-            previousItems.map((item) => (
-              <Link
-                key={item.id}
-                href={`/items/${item.id}`}
-                className="flex items-center gap-4 p-3 bg-[#F8FAFC] rounded-2xl hover:bg-slate-100 transition-colors"
-              >
-                {(() => {
-                  const { Icon, bg, color } = getCategoryIcon(item.category);
-                  return (
-                    <div className={`w-24 h-24 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${item.image_url ? 'bg-[#E8ECF4]' : bg}`}>
-                      {item.image_url ? (
-                        <img src={`${API_BASE_URL}${item.image_url}`} alt={item.title} className="w-full h-full object-cover rounded-xl" />
-                      ) : (
-                        <Icon className={`w-9 h-9 ${color}`} strokeWidth={1.5} />
-                      )}
-                    </div>
-                  );
-                })()}
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-500">{item.location}</p>
-                  <h3 className="text-lg font-semibold text-[#003898] truncate">{item.title}</h3>
-                  <p className="text-sm text-slate-400">{item.keywords || item.category}</p>
-                </div>
-
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <span className="text-xs text-[#003898]">{item.created_at ? formatTimeAgo(item.created_at) : ''}</span>
-                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </Link>
-            ))
-          ) : (
-            <div className="py-12 text-center">
-              <p className="text-sm text-slate-400">No previous items yet</p>
-            </div>
-          )}
-        </div>
-      </section>
+      {/* Items stream in via Suspense – layout appears instantly */}
+      <Suspense fallback={<DashboardItemsFallback />}>
+        <DashboardItemsSection />
+      </Suspense>
     </div>
   );
 }

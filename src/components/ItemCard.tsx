@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { formatRelativeTime } from '@/lib/utils';
-import { API_BASE_URL } from '@/lib/config';
 import { getCategoryIcon } from '@/lib/categoryIcons';
+import { ItemImage } from '@/components/ItemImage';
 
 interface ItemCardProps {
   item: {
@@ -17,10 +17,7 @@ interface ItemCardProps {
 }
 
 export function ItemCard({ item }: ItemCardProps) {
-  const imageUrl = item.image_url
-    ? `${API_BASE_URL}${item.image_url}`
-    : item.photo_url || null;
-
+  const imageUrl = item.image_url ?? item.photo_url ?? null;
   const isRecovered = item.status === 'Recovered';
   const { Icon: CategoryIcon, bg: catBg, color: catColor } = getCategoryIcon(item.category);
 
@@ -36,10 +33,11 @@ export function ItemCard({ item }: ItemCardProps) {
       {/* Image */}
       <div className={`relative w-20 h-20 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${imageUrl ? 'bg-[#F1F5F9]' : catBg}`}>
         {imageUrl ? (
-          <img
+          <ItemImage
             src={imageUrl}
             alt={item.title}
             className={`w-full h-full object-cover ${isRecovered ? 'opacity-70' : ''}`}
+            loading="lazy"
           />
         ) : (
           <CategoryIcon className={`w-8 h-8 ${catColor}`} strokeWidth={1.5} />

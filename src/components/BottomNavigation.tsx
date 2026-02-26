@@ -1,12 +1,74 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { API_BASE_URL } from '@/lib/config';
+
+const DASHBOARD_CACHE_KEY = 'findit_dashboard_cache';
+const PROFILE_CACHE_KEY = 'findit_profile_cache';
 
 export function BottomNavigation() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+
+  const prefetchDashboard = () => {
+    router.prefetch('/dashboard');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (!token || !API_BASE_URL) return;
+    const headers = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch(`${API_BASE_URL}/users/me`, { headers }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${API_BASE_URL}/items`).then((r) => (r.ok ? r.json() : [])),
+    ]).then(([user, data]) => {
+      if (!user || !Array.isArray(data)) return;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todays: unknown[] = [];
+      const older: unknown[] = [];
+      for (const item of data) {
+        const d = new Date((item as { created_at?: string }).created_at || '');
+        d.setHours(0, 0, 0, 0);
+        if (d.getTime() === today.getTime()) todays.push(item);
+        else older.push(item);
+      }
+      try {
+        const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+        const prev = raw ? JSON.parse(raw) : {};
+        localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ ...prev, user, todaysItems: todays, previousItems: older.slice(0, 5) }));
+      } catch {
+        // ignore
+      }
+    }).catch(() => {});
+  };
+
+  const prefetchProfile = () => {
+    router.prefetch('/profile');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (!token || !API_BASE_URL) return;
+    const headers = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch(`${API_BASE_URL}/users/me`, { headers }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${API_BASE_URL}/users/me/stats`, { headers }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${API_BASE_URL}/users/me/items`, { headers }).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${API_BASE_URL}/users/me/claims`, { headers }).then((r) => (r.ok ? r.json() : [])),
+    ]).then(([user, stats, reportedItems, claimedItems]) => {
+      try {
+        const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+        const prev = raw ? JSON.parse(raw) : {};
+        localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({
+          ...prev,
+          ...(user && { user }),
+          ...(stats && { stats: { reported: stats.reported || 0, claims: stats.claims || 0, reunited: stats.reunited || 0 } }),
+          ...(Array.isArray(reportedItems) && { reportedItems }),
+          ...(Array.isArray(claimedItems) && { claimedItems }),
+        }));
+      } catch {
+        // ignore
+      }
+    }).catch(() => {});
+  };
 
   return (
     <div
@@ -75,6 +137,7 @@ export function BottomNavigation() {
               {/* Home */}
               <Link
                 href="/dashboard"
+                onMouseEnter={prefetchDashboard}
                 className="w-12 h-12 rounded-full flex items-center justify-center transition-all"
                 style={{
                   backgroundColor: isActive('/dashboard') ? 'var(--color-nav-highlight)' : 'transparent'
@@ -101,6 +164,7 @@ export function BottomNavigation() {
               {/* Messages */}
               <Link
                 href="/messages"
+                onMouseEnter={() => router.prefetch('/messages')}
                 className="w-12 h-12 rounded-full flex items-center justify-center transition-all"
                 style={{
                   backgroundColor: isActive('/messages') ? 'var(--color-nav-highlight)' : 'transparent'
@@ -174,6 +238,7 @@ export function BottomNavigation() {
               {/* Profile */}
               <Link
                 href="/profile"
+                onMouseEnter={prefetchProfile}
                 className="w-12 h-12 rounded-full flex items-center justify-center transition-all"
                 style={{
                   backgroundColor: isActive('/profile') ? 'var(--color-nav-highlight)' : 'transparent'
