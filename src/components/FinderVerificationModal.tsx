@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { API_BASE_URL } from '@/lib/config';
+import { getItemImageSrc } from '@/lib/imageUtils';
 
 interface FinderVerificationModalProps {
   conversationId: number;
@@ -26,6 +27,8 @@ export function FinderVerificationModal({
 }: FinderVerificationModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
+  const resolvedImageUrl = getItemImageSrc(imageUrl);
 
   const handleVerify = () => {
     setError(null);
@@ -82,8 +85,13 @@ export function FinderVerificationModal({
 
         {/* Image Area */}
         <div className="w-full h-40 bg-[#F1F5F9] rounded-xl flex items-center justify-center mb-6 overflow-hidden">
-          {imageUrl ? (
-            <img src={imageUrl} alt={itemName} className="w-full h-full object-cover" />
+          {resolvedImageUrl && !imgError ? (
+            <img
+              src={resolvedImageUrl}
+              alt={itemName}
+              className="w-full h-full object-cover"
+              onError={() => setImgError(true)}
+            />
           ) : (
             <svg className="w-16 h-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={0.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />

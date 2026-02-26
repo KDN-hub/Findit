@@ -6,56 +6,26 @@ import { useParams } from 'next/navigation';
 import { VerificationRequestCard } from '@/components/VerificationRequestCard';
 import { FinderVerificationModal } from '@/components/FinderVerificationModal';
 import { HandoverModal } from '@/components/HandoverModal';
+import { getConversationDetail, type ConversationDetail } from '@/services/messages';
 
-// Mock data - Finder's perspective
-const getConversation = (id: string) => {
+// Mock data - Finder's perspective (fallback when not authenticated or API fails)
+const getMockConversation = (id: string) => {
   return {
     id,
-    claimer: {
-      id: 'user789',
-      name: 'Raph Willy',
-      avatar: null,
-    },
-    item: {
-      id: 'item123',
-      title: 'iPhone 14 Pro',
-      location: 'Library Building',
-      photo_url: null,
-    },
+    claimer: { id: 'user789', name: 'Raph Willy', avatar: null },
+    item: { id: 'item123', title: 'iPhone 14 Pro', location: 'Library Building', photo_url: null as string | null },
     claim_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    verification_status: 'Pending', // Pending, Verified, Rejected
+    verification_status: 'Pending' as const,
     messages: [
-      {
-        id: '1',
-        sender_id: 'me',
-        content: 'Hi, I found an item that might be yours. Can you verify ownership?',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        is_mine: true,
-      },
-      {
-        id: '2',
-        sender_id: 'user789',
-        content: 'Yes! I lost my phone at the library yesterday. Thank you so much for finding it!',
-        timestamp: new Date(Date.now() - 1.5 * 60 * 60 * 1000),
-        is_mine: false,
-      },
-      {
-        id: '3',
-        sender_id: 'me',
-        content: 'Great, please verify your identity so I can confirm it\'s yours.',
-        timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000),
-        is_mine: true,
-      },
-      {
-        id: 'verification-card',
-        sender_id: 'user789',
-        type: 'verification_request',
-        timestamp: new Date(Date.now() - 30 * 60 * 1000),
-        is_mine: false,
-      },
+      { id: '1', sender_id: 'me', content: 'Hi, I found an item that might be yours. Can you verify ownership?', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), is_mine: true },
+      { id: '2', sender_id: 'user789', content: 'Yes! I lost my phone at the library yesterday. Thank you so much for finding it!', timestamp: new Date(Date.now() - 1.5 * 60 * 60 * 1000), is_mine: false },
+      { id: '3', sender_id: 'me', content: 'Great, please verify your identity so I can confirm it\'s yours.', timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000), is_mine: true },
+      { id: 'verification-card', sender_id: 'user789', type: 'verification_request', timestamp: new Date(Date.now() - 30 * 60 * 1000), is_mine: false },
     ],
   };
 };
+
+type Conversation = ReturnType<typeof getMockConversation>;
 
 function formatMessageTime(date: Date): string {
   return date.toLocaleTimeString('en-US', {
@@ -75,8 +45,10 @@ function formatDate(date: Date): string {
 export default function FinderConversationPage() {
   const params = useParams();
   const id = params.id as string;
-  const conversation = getConversation(id);
+  const conversationId = parseInt(id, 10);
+  const isNumericId = !Number.isNaN(conversationId);
 
+  const [conversation, setConversation] = useState<Conversation>(() => getMockConversation(id));
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState(conversation.messages);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
@@ -84,6 +56,34 @@ export default function FinderConversationPage() {
   const [isVerified, setIsVerified] = useState(false);
   const [isHandedOver, setIsHandedOver] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load real conversation so item image (certificate/verification image) is available
+  useEffect(() => {
+    if (!isNumericId) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (!token) return;
+
+    getConversationDetail(conversationId)
+      .then((detail: ConversationDetail | null) => {
+        if (!detail || !detail.is_finder) return;
+        setConversation((prev) => ({
+          ...prev,
+          id: String(detail.id),
+          claimer: {
+            id: String(detail.other_user.id),
+            name: detail.other_user.name,
+            avatar: detail.other_user.avatar_url ?? null,
+          },
+          item: {
+            ...prev.item,
+            id: String(detail.item.id),
+            title: detail.item.title,
+            photo_url: detail.item.image_url ?? prev.item.photo_url,
+          },
+        }));
+      })
+      .catch(() => {});
+  }, [conversationId, isNumericId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
