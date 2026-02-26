@@ -7,6 +7,7 @@ google-auth
 requests
 python-multipart
 email-validator
+cloudinary
 bcrypt
 python-jose[cryptography]
 passlib

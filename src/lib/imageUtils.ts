@@ -5,7 +5,7 @@ export const ITEM_IMAGE_PLACEHOLDER = '/logo-dark.svg';
 
 /**
  * Returns the full image URL for item images.
- * If the URL is relative (doesn't start with 'http'), prepends the backend API base URL.
+ * Full URLs (e.g. Cloudinary https) are returned as-is; relative paths get the backend base prepended.
  */
 export function getItemImageSrc(url: string | null | undefined): string | null {
   if (!url || typeof url !== 'string') return null;

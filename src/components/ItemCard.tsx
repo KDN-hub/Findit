@@ -30,7 +30,7 @@ export function ItemCard({ item }: ItemCardProps) {
           : 'bg-white border-slate-100 hover:border-slate-200'
       }`}
     >
-      {/* Image */}
+      {/* Image: image_url used as-is when full URL (e.g. Cloudinary); helper only prepends backend for relative paths */}
       <div className={`relative w-20 h-20 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${imageUrl ? 'bg-[#F1F5F9]' : catBg}`}>
         {imageUrl ? (
           <ItemImage

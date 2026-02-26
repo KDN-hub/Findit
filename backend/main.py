@@ -27,6 +27,9 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import uuid
 import shutil
+import io
+import cloudinary
+import cloudinary.uploader
 
 from database import get_db_connection
 from auth_utils import verify_password, get_password_hash, create_access_token, get_current_user
@@ -118,7 +121,14 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
-# Ensure uploads directory exists
+# Cloudinary: initialize from Render env vars (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET)
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+)
+
+# Ensure uploads directory exists (legacy / fallback; new uploads go to Cloudinary)
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
@@ -622,15 +632,19 @@ async def create_item(
     try:
         user_id = current_user["id"]
 
-        # Handle image upload
+        # Handle image upload: send to Cloudinary folder 'findit_items', store secure_url
         image_url = None
         if image and image.filename:
-            ext = os.path.splitext(image.filename)[1] or ".jpg"
-            unique_name = f"{uuid.uuid4().hex}{ext}"
-            file_path = os.path.join(UPLOADS_DIR, unique_name)
-            with open(file_path, "wb") as f:
-                shutil.copyfileobj(image.file, f)
-            image_url = f"/uploads/{unique_name}"
+            content = await image.read()
+            if content:
+                try:
+                    result = cloudinary.uploader.upload(
+                        io.BytesIO(content),
+                        folder="findit_items",
+                    )
+                    image_url = result.get("secure_url")
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
 
         insert_query = """
         INSERT INTO items (title, description, status, category, location, keywords, date_found, contact_preference, image_url, user_id)
