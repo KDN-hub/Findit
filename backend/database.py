@@ -10,12 +10,14 @@ db_config = {
     "port": config.DB_PORT,
 }
 
-# Create a connection pool: warm connections ready for instant queries (e.g. Aiven)
+# Create a connection pool: enough lanes for many concurrent slow connections.
+# pool_size=20 gives enough open lanes; mysql.connector has no max_overflow or pool_recycle
+# (use pool_reset_session + ping(reconnect=True) below to avoid stale connections).
 try:
     connection_pool = pooling.MySQLConnectionPool(
         pool_name="findit_pool",
-        pool_size=10,  # Handle dashboard spikes
-        pool_reset_session=True,  # Clean slate per request without full re-login overhead
+        pool_size=20,
+        pool_reset_session=True,
         **db_config
     )
     print("Database connection pool created successfully")

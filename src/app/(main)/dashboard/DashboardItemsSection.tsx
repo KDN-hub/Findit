@@ -47,6 +47,7 @@ export function DashboardItemsSection() {
                 <Link
                   key={item.id}
                   href={`/items/${item.id}`}
+                  prefetch={true}
                   className="w-full flex-shrink-0 h-64 flex flex-col items-center justify-center"
                   style={{ scrollSnapAlign: 'start' }}
                 >
@@ -121,7 +122,7 @@ export function DashboardItemsSection() {
       <section className="px-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-[#003898]">Previously</h2>
-          <Link href="/items" className="text-sm text-[#003898] font-medium underline">
+          <Link href="/items" prefetch={true} className="text-sm text-[#003898] font-medium underline">
             See more
           </Link>
         </div>
@@ -132,6 +133,7 @@ export function DashboardItemsSection() {
               <Link
                 key={item.id}
                 href={`/items/${item.id}`}
+                prefetch={true}
                 className="flex items-center gap-4 p-3 bg-[#F8FAFC] rounded-2xl hover:bg-slate-100 transition-colors"
               >
                 {(() => {

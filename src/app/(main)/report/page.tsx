@@ -1,11 +1,21 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { API_BASE_URL } from '@/lib/config';
 import { CAMPUS_LOCATIONS } from '@/lib/constants';
+import { getPendingReports, addPendingReport, removePendingReportByCreatedAt, buildFormData } from '@/lib/offlineReportQueue';
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 const categories = [
   'Electronics',
@@ -76,37 +86,33 @@ export default function ReportItemPage() {
       return;
     }
 
-    // Optimistic update: show "Reported" success UI immediately
     setShowSuccess(true);
 
     startTransition(async () => {
+      const title = (formData.get('title') as string) ?? '';
+      const description = (formData.get('description') as string) ?? '';
+      const status = reportType === 'found' ? 'Found' : 'Lost';
+      const category = (formData.get('category') as string) ?? '';
+      const keywords = (formData.get('keywords') as string) ?? '';
+      const dateFound = (formData.get('date_found') as string) ?? '';
+      const contactPref = (formData.get('contact_preference') as string) ?? 'in_app';
+
       try {
         const body = new FormData();
-        body.append('title', formData.get('title') as string);
-        body.append('description', formData.get('description') as string);
-        body.append('status', reportType === 'found' ? 'Found' : 'Lost');
-        body.append('category', formData.get('category') as string);
+        body.append('title', title);
+        body.append('description', description);
+        body.append('status', status);
+        body.append('category', category);
         body.append('location', finalLocation);
-
-        const keywords = formData.get('keywords') as string;
         if (keywords) body.append('keywords', keywords);
-
-        const dateFound = formData.get('date_found') as string;
         if (dateFound) body.append('date_found', dateFound);
-
-        const contactPref = formData.get('contact_preference') as string;
         if (contactPref) body.append('contact_preference', contactPref);
-
-        if (hasImage) {
-          body.append('image', imageFile);
-        }
+        if (hasImage && imageFile) body.append('image', imageFile);
 
         const res = await fetch(`${API_BASE_URL}/items`, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: body,
+          headers: { Authorization: `Bearer ${token}` },
+          body,
         });
 
         if (!res.ok) {
@@ -114,17 +120,67 @@ export default function ReportItemPage() {
           throw new Error(errData?.detail || `Server error: ${res.status}`);
         }
 
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
+        setTimeout(() => router.push('/dashboard'), 2000);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-        setShowSuccess(false);
-        setSubmitError(message);
-        toast.error(message);
+        const isNetworkError =
+          err instanceof TypeError && (err.message === 'Failed to fetch' || (err as TypeError).name === 'TypeError') ||
+          (err instanceof Error && /network|fetch|connection|offline/i.test(err.message));
+
+        if (isNetworkError) {
+          setShowSuccess(false);
+          let imageBase64: string | undefined;
+          if (hasImage && imageFile) {
+            imageBase64 = await fileToDataUrl(imageFile);
+          }
+          addPendingReport({
+            title,
+            description,
+            status,
+            category,
+            location: finalLocation,
+            keywords: keywords || undefined,
+            date_found: dateFound || undefined,
+            contact_preference: contactPref,
+            imageBase64,
+            imageFilename: imageFile?.name,
+          });
+          setSubmitError(null);
+          toast('No connection. We will automatically upload your report once you are back online.', {
+            duration: 6000,
+            icon: '📡',
+          });
+        } else {
+          const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+          setShowSuccess(false);
+          setSubmitError(message);
+          toast.error(message);
+        }
       }
     });
   };
+
+  const retryPendingReports = useCallback(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (!token || !API_BASE_URL) return;
+    const pending = getPendingReports();
+    pending.forEach((entry) => {
+      const { body, headers } = buildFormData(entry, token);
+      const createdAt = entry.createdAt;
+      fetch(`${API_BASE_URL}/items`, { method: 'POST', headers, body })
+        .then((res) => {
+          if (res.ok) {
+            removePendingReportByCreatedAt(createdAt);
+            toast.success('Report uploaded successfully.');
+          }
+        })
+        .catch(() => {});
+    });
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('online', retryPendingReports);
+    return () => window.removeEventListener('online', retryPendingReports);
+  }, [retryPendingReports]);
 
   const handleTabChange = (type: ReportType) => {
     setReportType(type);
@@ -138,6 +194,7 @@ export default function ReportItemPage() {
         <div className="flex items-center gap-4">
           <Link
             href="/dashboard"
+            prefetch={true}
             className="w-10 h-10 bg-[#F1F5F9] rounded-full flex items-center justify-center"
           >
             <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

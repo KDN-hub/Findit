@@ -1,7 +1,12 @@
+'use client';
+
+import { useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { formatRelativeTime } from '@/lib/utils';
 import { getCategoryIcon } from '@/lib/categoryIcons';
 import { ItemImage } from '@/components/ItemImage';
+import { API_BASE_URL } from '@/lib/config';
 
 interface ItemCardProps {
   item: {
@@ -16,14 +21,38 @@ interface ItemCardProps {
   };
 }
 
+const HOVER_INTENT_MS = 100;
+
 export function ItemCard({ item }: ItemCardProps) {
+  const router = useRouter();
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const imageUrl = item.image_url ?? item.photo_url ?? null;
   const isRecovered = item.status === 'Recovered';
   const { Icon: CategoryIcon, bg: catBg, color: catColor } = getCategoryIcon(item.category);
 
+  const handleMouseEnter = useCallback(() => {
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null;
+      router.prefetch(`/items/${item.id}`);
+      if (API_BASE_URL) {
+        fetch(`${API_BASE_URL}/items/${item.id}`).catch(() => {});
+      }
+    }, HOVER_INTENT_MS);
+  }, [item.id, router]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
+
   return (
     <Link
       href={`/items/${item.id}`}
+      prefetch={true}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={`flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.99] border ${
         isRecovered
           ? 'bg-emerald-50/50 border-emerald-200'

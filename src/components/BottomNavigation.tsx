@@ -85,6 +85,7 @@ export function BottomNavigation() {
         {/* Center FAB - positioned above the notch */}
         <Link
           href="/report"
+          prefetch={true}
           className="absolute left-1/2 -translate-x-1/2 -top-6 w-16 h-16 rounded-full flex items-center justify-center z-20 transition-transform active:scale-95"
           style={{
             backgroundColor: 'var(--color-nav-fab)',
@@ -137,6 +138,7 @@ export function BottomNavigation() {
               {/* Home */}
               <Link
                 href="/dashboard"
+                prefetch={true}
                 onMouseEnter={prefetchDashboard}
                 className="w-12 h-12 rounded-full flex items-center justify-center transition-all"
                 style={{
@@ -164,6 +166,7 @@ export function BottomNavigation() {
               {/* Messages */}
               <Link
                 href="/messages"
+                prefetch={true}
                 onMouseEnter={() => router.prefetch('/messages')}
                 className="w-12 h-12 rounded-full flex items-center justify-center transition-all"
                 style={{
@@ -196,6 +199,7 @@ export function BottomNavigation() {
               {/* Items/Stats */}
               <Link
                 href="/items"
+                prefetch={true}
                 className="w-12 h-12 rounded-full flex items-center justify-center transition-all"
                 style={{
                   backgroundColor: isActive('/items') ? 'var(--color-nav-highlight)' : 'transparent'
@@ -238,6 +242,7 @@ export function BottomNavigation() {
               {/* Profile */}
               <Link
                 href="/profile"
+                prefetch={true}
                 onMouseEnter={prefetchProfile}
                 className="w-12 h-12 rounded-full flex items-center justify-center transition-all"
                 style={{
