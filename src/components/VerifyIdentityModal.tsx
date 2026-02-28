@@ -20,6 +20,7 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
     question1: '',
     question2: '',
     question3: '',
+    question4: '',
   });
 
   const questions = [
@@ -35,6 +36,11 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
     },
     {
       id: 'question3',
+      question: 'Describe or tell us what your wallpaper is',
+      placeholder: 'e.g., A photo of my dog, default blue lock screen...',
+    },
+    {
+      id: 'question4',
       question: 'What was the last thing you did with the item?',
       placeholder: 'e.g., I was using it at the library...',
     },
@@ -44,7 +50,7 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
   const currentAnswer = answers[currentQuestion?.id as keyof typeof answers] || '';
 
   const handleNext = () => {
-    if (step < 3) {
+    if (step < 4) {
       setStep(step + 1);
     } else {
       handleSubmit();
@@ -68,7 +74,8 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
     const answersList = [
       answers.question1,
       answers.question2,
-      answers.question3
+      answers.question3,
+      answers.question4,
     ];
 
     try {
@@ -136,7 +143,7 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
 
         {/* Progress Indicator */}
         <div className="flex items-center gap-2 mb-6">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
               className={`flex-1 h-1.5 rounded-full transition-colors ${s <= step ? 'bg-[#003898]' : 'bg-[#E8ECF4]'
@@ -153,7 +160,7 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
 
         {/* Question */}
         <div className="mb-6">
-          <p className="text-sm text-slate-500 mb-1">Question {step} of 3</p>
+          <p className="text-sm text-slate-500 mb-1">Question {step} of 4</p>
           <h3 className="text-lg font-semibold text-slate-800 mb-4">
             {currentQuestion?.question}
           </h3>
@@ -180,7 +187,7 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
               </svg>
               Submitting...
             </>
-          ) : step < 3 ? (
+          ) : step < 4 ? (
             'Next Question'
           ) : (
             'Submit Verification' 

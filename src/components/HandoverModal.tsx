@@ -14,7 +14,8 @@ export interface HandoverModalProps {
   conversationId: number;
   isFinder: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  /** Called on verify success; receives API response (e.g. { handover_status: 'success' }). */
+  onSuccess?: (data?: { handover_status?: string }) => void;
 }
 
 export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuccess }: HandoverModalProps) {
@@ -107,9 +108,9 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
         throw new Error(errorData.detail || 'Failed to verify code');
       }
 
+      const data = await response.json();
       setError('');
-      alert('Verification Successful!');
-      onSuccess?.();
+      onSuccess?.(data);
       onClose();
 
     } catch (err: unknown) {

@@ -4,7 +4,7 @@
 import os
 import random
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone, timezone, timezone
 import config  # loads .env automatically on import
 
 # Validate email config at startup (fail fast)
@@ -87,6 +87,19 @@ def run_migrations():
                 cursor.execute("ALTER TABLE conversations ADD COLUMN claimer_code_created_at DATETIME DEFAULT NULL")
             conn.commit()
             print("[MIGRATION] handover code columns (finder_code, claimer_code, *_created_at) ready.")
+
+            # Items: add 'Returned' to status enum for handover-complete
+            cursor.execute("""
+                SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'items' AND COLUMN_NAME = 'status'
+            """)
+            row = cursor.fetchone()
+            if row and 'Returned' not in (row[0] or ''):
+                cursor.execute(
+                    "ALTER TABLE items MODIFY COLUMN status ENUM('Lost', 'Found', 'Recovered', 'Returned') NOT NULL DEFAULT 'Found'"
+                )
+                conn.commit()
+                print("[MIGRATION] items.status enum: 'Returned' added.")
 
             # System user for automatic claim/chat messages (not a real login)
             cursor.execute(
@@ -304,8 +317,11 @@ def get_user_stats(current_user: dict = Depends(get_current_user), db=Depends(ge
         claims_result = cursor.fetchone()
         claims = claims_result['count'] if claims_result else 0
         
-        # 3. Reunited: Count items owned by user with status 'Recovered'
-        cursor.execute("SELECT COUNT(*) as count FROM items WHERE user_id = %s AND status = 'Recovered'", (user_id,))
+        # 3. Reunited: Count items owned by user with status Recovered or Returned
+        cursor.execute(
+            "SELECT COUNT(*) as count FROM items WHERE user_id = %s AND status IN ('Recovered', 'Returned')",
+            (user_id,),
+        )
         reunited_result = cursor.fetchone()
         reunited = reunited_result['count'] if reunited_result else 0
         
@@ -844,46 +860,42 @@ def create_claim(
         ))
         claim_id = cursor.lastrowid
 
-        # 3. Create System Message
-        system_content = f"User {current_user['full_name']} has submitted proof for your found item: {item['title']}"
-        insert_msg_query = """
-            INSERT INTO messages (sender_id, receiver_id, item_id, content)
-            VALUES (%s, %s, %s, %s)
-        """
-        cursor.execute(insert_msg_query, (
-            current_user["id"],  # Claimer is the sender of the initial "ping"
-            item["user_id"],     # Finder is the receiver
-            item["id"],
-            system_content
-        ))
-
-        db.commit()
-
-        # 4. Prepare Response
-        # 4. Prepare Response - Get or Create Conversation
-        # Check if conversation already exists
+        # 3. Get or create conversation (must exist before we add the system message)
         cursor.execute("SELECT id FROM conversations WHERE item_id = %s AND claimer_id = %s", (item["id"], current_user["id"]))
         conversation = cursor.fetchone()
 
         if conversation:
             conversation_id = conversation["id"]
         else:
-            # Create new conversation
             cursor.execute("INSERT INTO conversations (item_id, finder_id, claimer_id) VALUES (%s, %s, %s)",
                            (item["id"], item["user_id"], current_user["id"]))
             conversation_id = cursor.lastrowid
-            db.commit() # Commit the new conversation
-        
-        # Get the saved claim to return
+
+        db.commit()
+
+        # 4. After claim and conversation are committed: insert automatic "Hi" from System user
+        cursor.execute("SELECT id FROM users WHERE email = 'system@findit.internal' LIMIT 1")
+        system_user = cursor.fetchone()
+        if system_user:
+            system_user_id = system_user["id"]
+            claimer_name = (current_user.get("full_name") or "there").strip() or "there"
+            hi_content = f"Hi! {claimer_name} has submitted a claim for this item. You can now chat to coordinate handover."
+            cursor.execute(
+                "INSERT INTO messages (sender_id, receiver_id, item_id, content) VALUES (%s, %s, %s, %s)",
+                (system_user_id, item["user_id"], item["id"], hi_content)
+            )
+            db.commit()
+
+        # 5. Prepare response
         cursor.execute("SELECT * FROM claims WHERE id = %s", (claim_id,))
         claim = cursor.fetchone()
-        
+
         if claim.get("created_at"):
             claim["created_at"] = str(claim["created_at"])
-        
+
         claim["conversation_id"] = conversation_id
         claim["finder_name"] = item["finder_name"]
-        
+
         return claim
 
     except mysql.connector.Error as err:
@@ -1207,27 +1219,46 @@ def get_conversation_messages(
         # BUT, multiple conversations could theoretically exist for same item/users if not constrained?
         # The unique constraint "item_id + finder + claimer" was implied.
         
-        # Let's get the item_id and participants from the conversation first.
         cursor.execute("SELECT item_id, finder_id, claimer_id FROM conversations WHERE id = %s", (conversation_id,))
         conv = cursor.fetchone()
-        
-        # Fetch messages between these two users for this item
-        query = """
-            SELECT * FROM messages 
-            WHERE item_id = %s 
-            AND (
-                (sender_id = %s AND receiver_id = %s) 
-                OR 
-                (sender_id = %s AND receiver_id = %s)
-            )
-            ORDER BY created_at ASC
-        """
-        cursor.execute(query, (
-            conv['item_id'], 
-            conv['finder_id'], conv['claimer_id'],
-            conv['claimer_id'], conv['finder_id']
-        ))
-        
+
+        cursor.execute("SELECT id FROM users WHERE email = 'system@findit.internal' LIMIT 1")
+        sys_row = cursor.fetchone()
+        system_user_id = sys_row["id"] if sys_row else None
+
+        # Fetch messages: between finder and claimer, or from System (e.g. automatic "Hi")
+        if system_user_id is not None:
+            query = """
+                SELECT * FROM messages
+                WHERE item_id = %s
+                AND (
+                    (sender_id = %s AND receiver_id = %s)
+                    OR (sender_id = %s AND receiver_id = %s)
+                    OR sender_id = %s
+                )
+                ORDER BY created_at ASC
+            """
+            cursor.execute(query, (
+                conv['item_id'],
+                conv['finder_id'], conv['claimer_id'],
+                conv['claimer_id'], conv['finder_id'],
+                system_user_id,
+            ))
+        else:
+            query = """
+                SELECT * FROM messages
+                WHERE item_id = %s
+                AND (
+                    (sender_id = %s AND receiver_id = %s)
+                    OR (sender_id = %s AND receiver_id = %s)
+                )
+                ORDER BY created_at ASC
+            """
+            cursor.execute(query, (
+                conv['item_id'],
+                conv['finder_id'], conv['claimer_id'],
+                conv['claimer_id'], conv['finder_id'],
+            ))
         messages = cursor.fetchall()
         
         # Helper to convert datetime
@@ -1431,7 +1462,7 @@ def start_handover(
     cursor = db.cursor(dictionary=True)
     try:
         current_user_id = current_user['id']
-        now_utc = datetime.utcnow()
+        now_utc = datetime.now(timezone.utc)
 
         # 1. Verify access to conversation
         cursor.execute(
@@ -1450,13 +1481,14 @@ def start_handover(
         finder_code = _generate_handover_code()
         claimer_code = _generate_handover_code()
 
-        # 3. Update database with codes and UTC timestamps for 15-min expiry
+        # 3. Update database with codes and UTC timestamps for 15-min expiry (store as naive UTC for MySQL)
+        now_utc_naive = now_utc.replace(tzinfo=None)
         cursor.execute(
             """UPDATE conversations SET
                finder_code = %s, claimer_code = %s,
                finder_code_created_at = %s, claimer_code_created_at = %s
                WHERE id = %s""",
-            (finder_code, claimer_code, now_utc, now_utc, conversation_id),
+            (finder_code, claimer_code, now_utc_naive, now_utc_naive, conversation_id),
         )
         db.commit()
 
@@ -1478,15 +1510,17 @@ def verify_handover(
     db=Depends(get_db_connection),
 ):
     """
-    Verify the other person's handover code.
-    Rejects if code is older than 15 minutes. On success, clears codes and timestamps, then marks item Recovered.
+    Verify the other person's handover code. The Claimer submits the code shown by the Finder;
+    the Finder submits the code shown by the Claimer. Comparison: input_code == finder_code when
+    the submitter is the Claimer; input_code == claimer_code when the submitter is the Finder.
+    Uses timezone-aware UTC for the 15-minute expiry.
     """
     cursor = db.cursor(dictionary=True)
     try:
         current_user_id = current_user['id']
         input_code = verify_data.code.strip()
 
-        # 1. Verify access to conversation and get codes + timestamps
+        # 1. Verify access and get conversation (finder_code is what the Claimer must enter)
         cursor.execute("""
             SELECT c.finder_id, c.claimer_id, c.finder_code, c.claimer_code,
                    c.finder_code_created_at, c.claimer_code_created_at, c.item_id,
@@ -1504,35 +1538,44 @@ def verify_handover(
         if current_user_id not in (convo['finder_id'], convo['claimer_id']):
             raise HTTPException(status_code=403, detail="Not authorized")
 
-        # 2. Determine which code we're verifying (the other person's)
+        # 2. Who is submitting: Claimer enters Finder's code; Finder enters Claimer's code
         is_finder = current_user_id == convo['finder_id']
-        other_person_code = convo['claimer_code'] if is_finder else convo['finder_code']
-        other_code_created_at = convo['claimer_code_created_at'] if is_finder else convo['finder_code_created_at']
-        other_person_name = convo['claimer_name'] if is_finder else convo['finder_name']
-        receiver_id = convo['claimer_id'] if is_finder else convo['finder_id']
+        if is_finder:
+            expected_code = convo['claimer_code']
+            code_created_at = convo['claimer_code_created_at']
+            other_person_name = convo['claimer_name']
+            receiver_id = convo['claimer_id']
+        else:
+            # Claimer submitting: compare to finder_code (the code the Finder showed them)
+            expected_code = convo['finder_code']
+            code_created_at = convo['finder_code_created_at']
+            other_person_name = convo['finder_name']
+            receiver_id = convo['finder_id']
         item_id = convo['item_id']
 
-        # 3. Require code to exist
-        if not other_person_code:
+        if not expected_code:
             raise HTTPException(status_code=400, detail="The other person hasn't started handover yet")
 
-        # 4. Expiry: code must be no older than 15 minutes (UTC)
-        if other_code_created_at:
-            expiry = other_code_created_at + timedelta(minutes=15)
-            if datetime.utcnow() > expiry:
+        # 3. Expiry: 15 minutes using timezone-aware UTC (DB may store UTC or local; treat as UTC)
+        if code_created_at is not None:
+            if getattr(code_created_at, 'tzinfo', None) is None:
+                code_created_at = code_created_at.replace(tzinfo=timezone.utc)
+            expiry = code_created_at + timedelta(minutes=15)
+            now_utc = datetime.now(timezone.utc)
+            if now_utc > expiry:
                 raise HTTPException(
                     status_code=400,
                     detail="Verification code has expired. Please generate a new one.",
                 )
 
-        if input_code != other_person_code:
+        if input_code != expected_code:
             raise HTTPException(status_code=400, detail="Invalid code. Please check and try again.")
 
-        # 5. Clear codes and timestamps immediately after successful verify (security)
+        # 5. Clear finder_code and finder_code_created_at (and claimer codes) after successful verify
         cursor.execute("""
             UPDATE conversations SET
-            finder_code = NULL, claimer_code = NULL,
-            finder_code_created_at = NULL, claimer_code_created_at = NULL
+            finder_code = NULL, finder_code_created_at = NULL,
+            claimer_code = NULL, claimer_code_created_at = NULL
             WHERE id = %s
         """, (conversation_id,))
 
@@ -1543,11 +1586,17 @@ def verify_handover(
             VALUES (%s, %s, %s, %s)
         """, (current_user_id, receiver_id, item_id, message_content))
 
-        # 7. Mark item as Recovered
-        cursor.execute("UPDATE items SET status = 'Recovered' WHERE id = %s", (item_id,))
-
+        # 7. Update item status to Returned (handover complete); fallback to Recovered if enum not migrated yet
+        try:
+            cursor.execute("UPDATE items SET status = 'Returned' WHERE id = %s", (item_id,))
+        except mysql.connector.Error:
+            cursor.execute("UPDATE items SET status = 'Recovered' WHERE id = %s", (item_id,))
         db.commit()
-        return {"status": "success", "message": "Handover verified successfully"}
+        return {
+            "status": "success",
+            "message": "Handover verified successfully",
+            "handover_status": "success",
+        }
 
     except HTTPException:
         raise
@@ -1568,17 +1617,19 @@ def get_messages_history(
     """
     cursor = db.cursor(dictionary=True)
     try:
-        # 1. Verify access to conversation
         cursor.execute("SELECT item_id, finder_id, claimer_id FROM conversations WHERE id = %s", (conversation_id,))
         convo = cursor.fetchone()
-        
+
         if not convo:
             raise HTTPException(status_code=404, detail="Conversation not found")
-            
-        if current_user['id'] not in (convo['finder_id'], convo['claimer_id']):
-             raise HTTPException(status_code=403, detail="Not authorized to view this conversation")
 
-        # 2. Mark messages received by current user as read
+        if current_user['id'] not in (convo['finder_id'], convo['claimer_id']):
+            raise HTTPException(status_code=403, detail="Not authorized to view this conversation")
+
+        cursor.execute("SELECT id FROM users WHERE email = 'system@findit.internal' LIMIT 1")
+        sys_row = cursor.fetchone()
+        system_user_id = sys_row["id"] if sys_row else None
+
         cursor.execute("""
             UPDATE messages SET is_read = TRUE
             WHERE item_id = %s AND receiver_id = %s
@@ -1586,21 +1637,38 @@ def get_messages_history(
         """, (convo['item_id'], current_user['id'], convo['finder_id'], convo['claimer_id']))
         db.commit()
 
-        # 3. Fetch messages
-        query = """
-            SELECT * FROM messages
-            WHERE item_id = %s
-            AND (
-                (sender_id = %s AND receiver_id = %s)
-                OR (sender_id = %s AND receiver_id = %s)
-            )
-            ORDER BY created_at ASC
-        """
-        cursor.execute(query, (
-            convo['item_id'],
-            convo['finder_id'], convo['claimer_id'],
-            convo['claimer_id'], convo['finder_id']
-        ))
+        if system_user_id is not None:
+            query = """
+                SELECT * FROM messages
+                WHERE item_id = %s
+                AND (
+                    (sender_id = %s AND receiver_id = %s)
+                    OR (sender_id = %s AND receiver_id = %s)
+                    OR sender_id = %s
+                )
+                ORDER BY created_at ASC
+            """
+            cursor.execute(query, (
+                convo['item_id'],
+                convo['finder_id'], convo['claimer_id'],
+                convo['claimer_id'], convo['finder_id'],
+                system_user_id,
+            ))
+        else:
+            query = """
+                SELECT * FROM messages
+                WHERE item_id = %s
+                AND (
+                    (sender_id = %s AND receiver_id = %s)
+                    OR (sender_id = %s AND receiver_id = %s)
+                )
+                ORDER BY created_at ASC
+            """
+            cursor.execute(query, (
+                convo['item_id'],
+                convo['finder_id'], convo['claimer_id'],
+                convo['claimer_id'], convo['finder_id'],
+            ))
         messages = cursor.fetchall()
 
         # Convert datetime
@@ -1616,6 +1684,17 @@ def get_messages_history(
         cursor.close()
 
 
+def _get_system_user_id(cursor) -> Optional[int]:
+    """Return System user id (prefer ID 0, else system@findit.internal)."""
+    cursor.execute("SELECT id FROM users WHERE id = 0 LIMIT 1")
+    row = cursor.fetchone()
+    if row:
+        return row["id"]
+    cursor.execute("SELECT id FROM users WHERE email = 'system@findit.internal' LIMIT 1")
+    row = cursor.fetchone()
+    return row["id"] if row else None
+
+
 @app.post("/messages", response_model=MessageResponse)
 def create_message(
     message_data: MessageCreate,
@@ -1623,35 +1702,82 @@ def create_message(
     db=Depends(get_db_connection),
 ):
     """
-    Protected route: Send a message.
+    Protected route: Send a message. If this is the first message in the conversation
+    and the sender is the Claimer, automatically send a one-time verification prompt from the System user.
     """
     cursor = db.cursor(dictionary=True)
     try:
-        sender_id = current_user['id']
-        
-        # Verify receiver and item exist? Optional but good practice.
-        # For now, trusting the input to be valid for MVp speed, but basic FK check happens on insert.
-        
+        sender_id = current_user["id"]
+        item_id = message_data.item_id
+        receiver_id = message_data.receiver_id
+
         insert_query = """
             INSERT INTO messages (sender_id, receiver_id, item_id, content)
             VALUES (%s, %s, %s, %s)
         """
         cursor.execute(insert_query, (
             sender_id,
-            message_data.receiver_id,
-            message_data.item_id,
-            message_data.content
+            receiver_id,
+            item_id,
+            message_data.content,
         ))
         db.commit()
         new_id = cursor.lastrowid
-        
-        # Fetch created message
+
+        # First message in this conversation? (conversation = this item + these two participants)
+        cursor.execute("""
+            SELECT id, finder_id, claimer_id FROM conversations
+            WHERE item_id = %s AND (
+                (finder_id = %s AND claimer_id = %s) OR (finder_id = %s AND claimer_id = %s)
+            )
+            LIMIT 1
+        """, (item_id, sender_id, receiver_id, receiver_id, sender_id))
+        convo = cursor.fetchone()
+
+        if convo:
+            # First *user* message = only messages from finder or claimer (exclude system)
+            cursor.execute("""
+                SELECT COUNT(*) AS cnt FROM messages
+                WHERE item_id = %s
+                AND (
+                    (sender_id = %s AND receiver_id = %s)
+                    OR (sender_id = %s AND receiver_id = %s)
+                )
+            """, (item_id, convo["finder_id"], convo["claimer_id"], convo["claimer_id"], convo["finder_id"]))
+            count_row = cursor.fetchone()
+            total_user_messages = (count_row["cnt"] or 0) if count_row else 0
+
+            is_first_message = total_user_messages == 1
+            is_claimer = sender_id == convo["claimer_id"]
+
+            if is_first_message and is_claimer:
+                system_user_id = _get_system_user_id(cursor)
+                if system_user_id is not None:
+                    cursor.execute("""
+                        SELECT 1 FROM messages
+                        WHERE item_id = %s AND sender_id = %s
+                        AND content LIKE %s
+                        LIMIT 1
+                    """, (item_id, system_user_id, "%Verify Ownership%"))
+                    if not cursor.fetchone():
+                        claimer_name = (current_user.get("full_name") or "there").strip() or "there"
+                        auto_content = (
+                            f"Hi {claimer_name}! Great that you've reached out. "
+                            "Before you continue the chat, please click the Verify Ownership button at the top of the screen. "
+                            "You'll need to answer a few questions to confirm you're the rightful owner!"
+                        )
+                        cursor.execute(
+                            "INSERT INTO messages (sender_id, receiver_id, item_id, content) VALUES (%s, %s, %s, %s)",
+                            (system_user_id, convo["claimer_id"], item_id, auto_content),
+                        )
+                        db.commit()
+
         cursor.execute("SELECT * FROM messages WHERE id = %s", (new_id,))
         msg = cursor.fetchone()
-        
+
         if msg.get("created_at"):
             msg["created_at"] = str(msg["created_at"])
-            
+
         return msg
 
     except mysql.connector.Error as err:
@@ -1691,11 +1817,12 @@ def submit_verification(
         receiver_id = convo['claimer_id'] if current_user_id == convo['finder_id'] else convo['finder_id']
         item_id = convo['item_id']
         
-        # 3. Format the verification message
+        # 3. Format the verification message (must match frontend VerifyIdentityModal order)
         questions = [
             "What color is the item?",
             "Describe any unique marks or features",
-            "What was the last thing you did with the item?"
+            "Describe or tell us what your wallpaper is",
+            "What was the last thing you did with the item?",
         ]
         
         message_content = "🛡️ Identity Verification Submitted\n\n"
@@ -1842,8 +1969,8 @@ def read_user_claims(current_user: dict = Depends(get_current_user), db=Depends(
         for row in rows:
              # Determine status
              status = "In Progress"
-             if row['item_status'] == 'Recovered':
-                 status = 'Recovered'
+             if row['item_status'] in ('Recovered', 'Returned'):
+                 status = row['item_status']
              elif row['claim_status']:
                  status = row['claim_status']
              

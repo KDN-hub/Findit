@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { getMessages, sendMessage, ChatMessage, ConversationDetail, getConversationDetail } from '@/services/messages';
 import { VerifyIdentityModal } from '@/components/VerifyIdentityModal';
 import { HandoverModal } from '@/components/HandoverModal';
+import { HandoverSuccessAnimation } from '@/components/HandoverSuccessAnimation';
 import { API_BASE_URL } from '@/lib/config';
 
 function formatMessageTime(dateStr: string): string {
@@ -48,6 +49,8 @@ export default function ConversationPage() {
   // STRICT: Modal state MUST start as false - NEVER auto-opens
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [isHandoverComplete, setIsHandoverComplete] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -203,12 +206,14 @@ export default function ConversationPage() {
             <p className="text-xs text-slate-500">Re: {conversation?.item.title}</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowHandoverModal(true)}
-          className="px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-medium hover:bg-purple-200 transition-colors"
-        >
-          Hand over verification
-        </button>
+        {!isHandoverComplete && (
+          <button
+            onClick={() => setShowHandoverModal(true)}
+            className="px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-medium hover:bg-purple-200 transition-colors"
+          >
+            Hand over verification
+          </button>
+        )}
       </header>
 
       {/* Gray Action Bar - Identity Verification (Only for Claimers) */}
@@ -336,11 +341,20 @@ export default function ConversationPage() {
           conversationId={conversationId}
           isFinder={isFinder}
           onClose={() => setShowHandoverModal(false)}
-          onSuccess={() => {
+          onSuccess={(data) => {
             setShowHandoverModal(false);
-            loadData(); // Reload messages to show the verification message
+            if (data?.handover_status === 'success') {
+              setIsHandoverComplete(true);
+              setShowSuccessAnimation(true);
+            }
+            loadData();
           }}
         />
+      )}
+
+      {/* Success animation overlay */}
+      {showSuccessAnimation && (
+        <HandoverSuccessAnimation onComplete={() => setShowSuccessAnimation(false)} />
       )}
     </div>
   );

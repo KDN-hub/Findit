@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { VerificationRequestCard } from '@/components/VerificationRequestCard';
 import { FinderVerificationModal } from '@/components/FinderVerificationModal';
 import { HandoverModal } from '@/components/HandoverModal';
+import { HandoverSuccessAnimation } from '@/components/HandoverSuccessAnimation';
 import { getConversationDetail, type ConversationDetail } from '@/services/messages';
 
 // Mock data - Finder's perspective (fallback when not authenticated or API fails)
@@ -55,6 +56,7 @@ export default function FinderConversationPage() {
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [isHandedOver, setIsHandedOver] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load real conversation so item image (certificate/verification image) is available
@@ -317,21 +319,28 @@ export default function FinderConversationPage() {
           conversationId={Number(conversation.id)}
           isFinder={true}
           onClose={() => setShowHandoverModal(false)}
-          onSuccess={() => {
+          onSuccess={(data) => {
             setShowHandoverModal(false);
-            setIsHandedOver(true);
-            setMessages([
-              ...messages,
-              {
-                id: Date.now().toString(),
-                sender_id: 'system',
-                content: '🎉 Handover complete! The item has been returned to its owner. Thank you for using Findit!',
-                timestamp: new Date(),
-                is_mine: false,
-              },
-            ]);
+            if (data?.handover_status === 'success') {
+              setIsHandedOver(true);
+              setShowSuccessAnimation(true);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: Date.now().toString(),
+                  sender_id: 'system',
+                  content: '🎉 Handover complete! The item has been returned to its owner. Thank you for using Findit!',
+                  timestamp: new Date(),
+                  is_mine: false,
+                },
+              ]);
+            }
           }}
         />
+      )}
+
+      {showSuccessAnimation && (
+        <HandoverSuccessAnimation onComplete={() => setShowSuccessAnimation(false)} />
       )}
     </div>
   );
