@@ -13,7 +13,7 @@ import { getConversationDetail, type ConversationDetail } from '@/services/messa
 const getMockConversation = (id: string) => {
   return {
     id,
-    claimer: { id: 'user789', name: 'Raph Willy', avatar: null },
+    claimer: { id: 'user789', name: 'Raph Willy', avatar: null as string | null },
     item: { id: 'item123', title: 'iPhone 14 Pro', location: 'Library Building', photo_url: null as string | null },
     claim_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
     verification_status: 'Pending' as const,
