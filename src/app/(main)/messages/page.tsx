@@ -76,14 +76,14 @@ export default function MessagesPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50 dark:bg-slate-900">
+      <div className="flex justify-center items-center h-screen bg-[var(--color-background)]">
         <Loader2 className="w-8 h-8 animate-spin text-[#003898] dark:text-blue-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-20 flex items-start justify-center pt-6 px-4">
+    <div className="min-h-screen bg-[var(--color-background)] pb-20 flex items-start justify-center pt-6 px-4">
       {/* Main Card */}
       <div className="w-full max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden border border-transparent dark:border-slate-700">
         {/* Header */}
