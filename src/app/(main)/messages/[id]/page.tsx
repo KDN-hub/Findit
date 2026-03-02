@@ -138,9 +138,17 @@ export default function ConversationPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Scroll to bottom only on initial load (not on every message poll, so user can scroll up to read)
+  const hasScrolledInitialRef = useRef(false);
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (!loading && messages.length > 0 && !hasScrolledInitialRef.current) {
+      hasScrolledInitialRef.current = true;
+      scrollToBottom();
+    }
+  }, [loading, messages.length]);
+  useEffect(() => {
+    hasScrolledInitialRef.current = false;
+  }, [conversationId]);
 
   const handleSend = async () => {
     if (!message.trim() || !conversation || !currentUser) return;
@@ -153,6 +161,7 @@ export default function ConversationPage() {
       if (newMessage) {
         setMessages([...messages, newMessage]);
         setMessage('');
+        setTimeout(() => scrollToBottom(), 0);
       }
     } catch (error) {
       console.error("Failed to send", error);

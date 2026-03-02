@@ -76,34 +76,34 @@ export default function MessagesPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-[#003898]" />
+      <div className="flex justify-center items-center h-screen bg-gray-50 dark:bg-slate-900">
+        <Loader2 className="w-8 h-8 animate-spin text-[#003898] dark:text-blue-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 flex items-start justify-center pt-6 px-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-20 flex items-start justify-center pt-6 px-4">
       {/* Main Card */}
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-lg overflow-hidden">
+      <div className="w-full max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden border border-transparent dark:border-slate-700">
         {/* Header */}
-        <div className="bg-white px-6 py-4 border-b border-slate-200">
-          <h1 className="text-xl font-bold text-[#003898]">My Messages</h1>
+        <div className="bg-white dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h1 className="text-xl font-bold text-[#003898] dark:text-white">My Messages</h1>
         </div>
 
         {/* Content */}
         <div className="p-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm mb-4">
+            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 p-3 rounded-md text-sm mb-4">
               {error}
             </div>
           )}
 
           {conversations.length === 0 && !error ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-              <MessageSquareOff size={48} className="mb-3" />
-              <p className="text-base font-medium text-slate-600">No messages found.</p>
-              <p className="text-sm text-slate-500 mt-1">Start a claim to chat!</p>
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-slate-400">
+              <MessageSquareOff size={48} className="mb-3 dark:text-slate-500" />
+              <p className="text-base font-medium text-slate-600 dark:text-slate-300">No messages found.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Start a claim to chat!</p>
             </div>
           ) : (
             <div className="space-y-0">
@@ -111,11 +111,11 @@ export default function MessagesPage() {
                 <Link
                   href={`/messages/${conv.id}`}
                   key={conv.id}
-                  className="block px-4 py-4 border-b border-slate-100 hover:bg-[#003898]/10 transition-colors last:border-b-0"
+                  className="block px-4 py-4 border-b border-slate-100 dark:border-slate-700 hover:bg-[#003898]/10 dark:hover:bg-slate-700/50 transition-colors last:border-b-0"
                 >
                   <div className="flex items-start space-x-4">
                     {/* Avatar */}
-                    <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-12 h-12 bg-blue-50 dark:bg-slate-600 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
                       {conv.other_user_avatar ? (
                         <img
                           src={conv.other_user_avatar}
@@ -123,7 +123,7 @@ export default function MessagesPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-base font-bold text-[#003898]">
+                        <span className="text-base font-bold text-[#003898] dark:text-slate-200">
                           {conv.other_user_name.slice(0, 2).toUpperCase()}
                         </span>
                       )}
@@ -132,19 +132,19 @@ export default function MessagesPage() {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start mb-1">
-                        <h3 className="font-bold text-slate-800 truncate pr-2">
+                        <h3 className="font-bold text-slate-800 dark:text-white truncate pr-2">
                           {conv.item_title}
                         </h3>
-                        <span className="text-xs text-slate-400 whitespace-nowrap">
+                        <span className="text-xs text-slate-400 dark:text-slate-400 whitespace-nowrap">
                           {formatDate(conv.last_message_time || conv.created_at)}
                         </span>
                       </div>
 
-                      <p className="text-sm font-medium text-slate-500 mb-1">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-300 mb-1">
                         {conv.other_user_name}
                       </p>
 
-                      <p className="text-sm text-slate-400 truncate">
+                      <p className="text-sm text-slate-400 dark:text-slate-400 truncate">
                         {conv.last_message || "Start the conversation..."}
                       </p>
                     </div>

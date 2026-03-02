@@ -91,9 +91,16 @@ export default function FinderConversationPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const hasScrolledInitialRef = useRef(false);
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (messages.length > 0 && !hasScrolledInitialRef.current) {
+      hasScrolledInitialRef.current = true;
+      scrollToBottom();
+    }
+  }, [messages.length]);
+  useEffect(() => {
+    hasScrolledInitialRef.current = false;
+  }, [conversationId]);
 
   const handleSend = () => {
     if (!message.trim()) return;
@@ -108,6 +115,7 @@ export default function FinderConversationPage() {
 
     setMessages([...messages, newMessage]);
     setMessage('');
+    setTimeout(() => scrollToBottom(), 0);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
