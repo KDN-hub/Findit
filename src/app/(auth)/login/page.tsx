@@ -3,7 +3,6 @@
 import { Suspense, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { API_BASE_URL } from '@/lib/config';
 import { setSessionCookieAction } from '@/actions/auth';
 
@@ -59,37 +58,8 @@ function LoginForm() {
     });
   }
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    try {
-      if (credentialResponse.credential) {
-        const res = await fetch(`${API_BASE_URL}/auth/google`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ token: credentialResponse.credential }),
-        });
-
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.detail || 'Google login failed');
-        }
-
-        const data = await res.json();
-        await setSessionCookieAction(data.id);
-        localStorage.setItem('access_token', data.access_token);
-        router.push(redirectTo);
-        router.refresh();
-      }
-    } catch (error: any) {
-      console.log('Login Failed');
-      console.error('Google login error', error);
-    }
-  };
-
   return (
-    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
-      <div className="min-h-dvh bg-white flex flex-col px-6 pt-10 pb-8 safe-area-top safe-area-bottom">
+    <div className="min-h-dvh bg-white flex flex-col px-6 pt-10 pb-8 safe-area-top safe-area-bottom">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-[32px] font-bold text-[#003898] mb-2 mt-4">Welcome back!</h1>
@@ -184,21 +154,6 @@ function LoginForm() {
               )}
             </button>
 
-            {/* Google Sign In Button */}
-            <div className="flex justify-center w-full my-4">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => {
-                  console.log('Login Failed');
-                }}
-                useOneTap={false}
-                theme="outline"
-                size="large"
-                width="100%"
-                shape="rectangular"
-              />
-            </div>
-
             {/* Sign Up Link */}
             <p className="text-center text-[#6B7280] pt-2">
               Don&apos;t have an account{' '}
@@ -209,7 +164,7 @@ function LoginForm() {
           </div>
         </form>
       </div>
-    </GoogleOAuthProvider>
+    </div>
   );
 }
 

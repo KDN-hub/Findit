@@ -3,7 +3,6 @@
 import { Suspense, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { API_BASE_URL } from '@/lib/config';
 import { setSessionCookieAction } from '@/actions/auth';
 
@@ -56,37 +55,8 @@ function SignUpForm() {
     });
   }
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    try {
-      if (credentialResponse.credential) {
-        const res = await fetch(`${API_BASE_URL}/auth/google`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ token: credentialResponse.credential }),
-        });
-
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.detail || 'Google sign up failed');
-        }
-
-        const data = await res.json();
-        await setSessionCookieAction(data.id);
-        localStorage.setItem('access_token', data.access_token);
-        router.push(redirectTo);
-        router.refresh();
-      }
-    } catch (error: any) {
-      console.error('Google sign up error', error);
-      setGeneralError(error.message || 'An error occurred during Google sign up');
-    }
-  };
-
   return (
-    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
-      <div className="min-h-dvh bg-white flex flex-col px-6 pt-16 pb-8 safe-area-top safe-area-bottom">
+    <div className="min-h-dvh bg-white flex flex-col px-6 pt-16 pb-8 safe-area-top safe-area-bottom">
         {/* Back Button */}
         <Link
           href="/login"
@@ -224,27 +194,10 @@ function SignUpForm() {
                 'Sign Up'
               )}
             </button>
-
-            {/* Google Sign Up Button */}
-            <div className="flex justify-center w-full">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => {
-                  console.log('Sign up Failed');
-                  setGeneralError('Google sign up failed');
-                }}
-                useOneTap
-                theme="outline"
-                size="large"
-                width="100%"
-                shape="rectangular"
-                text="signup_with"
-              />
-            </div>
           </div>
         </form>
       </div>
-    </GoogleOAuthProvider>
+    </div>
   );
 }
 

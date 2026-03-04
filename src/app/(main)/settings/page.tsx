@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
@@ -12,6 +12,7 @@ type ThemeOption = 'light' | 'dark';
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const [isAdmin, setIsAdmin] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [notifications, setNotifications] = useState({
     pushEnabled: true,
@@ -26,6 +27,15 @@ export default function SettingsPage() {
   });
 
   const isDark = resolvedTheme === 'dark';
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (!token) return;
+    fetch(`${API_BASE_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setIsAdmin(!!data.is_admin))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className={`min-h-dvh pb-8 ${isDark ? 'bg-[#0f172a]' : 'bg-[#F8FAFC]'}`}>
@@ -150,6 +160,14 @@ export default function SettingsPage() {
             Account
           </h2>
           <div className={`rounded-2xl overflow-hidden divide-y ${isDark ? 'bg-[#1e293b] divide-slate-700' : 'bg-white divide-slate-100'}`}>
+            {isAdmin && (
+              <SettingLink
+                label="Admin Dashboard"
+                description="Activity feed, users, and moderation"
+                href="/admin"
+                isDark={isDark}
+              />
+            )}
             <SettingLink
               label="Edit Profile"
               description="Update your name, photo, and details"

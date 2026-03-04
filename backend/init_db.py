@@ -108,6 +108,22 @@ TABLES = [
         )
         """,
     ),
+    (
+        "audit_logs",
+        """
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NULL,
+            action VARCHAR(64) NOT NULL,
+            item_id INT NULL,
+            details TEXT,
+            ip_address VARCHAR(45),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE SET NULL
+        )
+        """,
+    ),
 ]
 
 

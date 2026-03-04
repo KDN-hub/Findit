@@ -4,7 +4,7 @@
 import os
 import random
 import secrets
-from datetime import datetime, timedelta, timezone, timezone, timezone
+from datetime import datetime, timedelta, timezone
 import config  # loads .env automatically on import
 
 # Validate email config at startup (fail fast)
@@ -40,11 +40,23 @@ from init_db import ensure_tables
 # Create all tables if they don't exist (equivalent to SQLAlchemy Base.metadata.create_all)
 ensure_tables()
 
-def require_admin(current_user: dict = Depends(get_current_user)):
-    """Dependency that rejects non-admin users."""
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
+def require_admin(current_user: dict = Depends(get_current_user), db=Depends(get_db_connection)):
+    """Dependency that rejects non-admin users. Checks is_admin flag or role='admin' from DB."""
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT id, role, is_admin FROM users WHERE id = %s",
+            (current_user.get("id"),),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        is_admin = row.get("is_admin") in (1, True) or (row.get("role") or "").lower() == "admin"
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        return current_user
+    finally:
+        cursor.close()
 
 app = FastAPI()
 
@@ -108,6 +120,52 @@ def run_migrations():
             )
             conn.commit()
             print("[MIGRATION] System user ready for claim greetings.")
+
+            # Users: matric_number, is_admin, is_suspended
+            cursor.execute("""
+                SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+                AND COLUMN_NAME IN ('matric_number', 'is_admin', 'is_suspended')
+            """)
+            user_cols = {row[0] for row in cursor.fetchall()}
+            if "matric_number" not in user_cols:
+                cursor.execute("ALTER TABLE users ADD COLUMN matric_number VARCHAR(64) UNIQUE NULL")
+            if "is_admin" not in user_cols:
+                cursor.execute("ALTER TABLE users ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0")
+            if "is_suspended" not in user_cols:
+                cursor.execute("ALTER TABLE users ADD COLUMN is_suspended TINYINT(1) NOT NULL DEFAULT 0")
+            conn.commit()
+            print("[MIGRATION] users: matric_number, is_admin, is_suspended ready.")
+
+            # Expand role enum to include staff, visitor (keep student, admin)
+            cursor.execute("""
+                SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'role'
+            """)
+            r = cursor.fetchone()
+            if r and 'staff' not in (r[0] or ''):
+                cursor.execute(
+                    "ALTER TABLE users MODIFY COLUMN role ENUM('student', 'staff', 'visitor', 'admin') NOT NULL DEFAULT 'student'"
+                )
+                conn.commit()
+                print("[MIGRATION] users.role enum expanded.")
+
+            # Audit logs table (create if not exists)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NULL,
+                    action VARCHAR(64) NOT NULL,
+                    item_id INT NULL,
+                    details TEXT,
+                    ip_address VARCHAR(45),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE SET NULL
+                )
+            """)
+            conn.commit()
+            print("[MIGRATION] audit_logs table ready.")
         finally:
             cursor.close()
     except Exception as e:
@@ -163,6 +221,7 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str] = None
     role: str
     auth_provider: str
+    is_admin: bool = False
     access_token: str
     token_type: str
 
@@ -173,6 +232,8 @@ class UserProfileResponse(BaseModel):
     avatar_url: Optional[str] = None
     role: str
     auth_provider: str
+    is_admin: bool = False
+    matric_number: Optional[str] = None
 
 # Item Pydantic Models (ItemCreate no longer used for POST, but kept for reference)
 class ItemCreate(BaseModel):
@@ -243,6 +304,34 @@ class ClaimResponse(BaseModel):
     conversation_id: int
     finder_name: str
 
+
+# Audit log entry (for admin API)
+class AuditLogEntry(BaseModel):
+    id: int
+    user_id: Optional[int]
+    action: str
+    item_id: Optional[int]
+    details: Optional[str] = None
+    ip_address: Optional[str] = None
+    created_at: str
+    user_name: Optional[str] = None
+
+
+def log_audit(db, user_id: Optional[int], action: str, item_id: Optional[int] = None, details: Optional[str] = None, ip_address: Optional[str] = None):
+    """Record an audit event. Does not raise; logs errors."""
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO audit_logs (user_id, action, item_id, details, ip_address) VALUES (%s, %s, %s, %s, %s)",
+            (user_id, action, item_id, details, ip_address),
+        )
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[AUDIT] Failed to log {action}: {e}")
+    finally:
+        cursor.close()
+
 @app.get("/")
 def read_root():
     return {"message": "Findit Backend is running"}
@@ -280,10 +369,14 @@ def get_me(current_user: dict = Depends(get_current_user), db=Depends(get_db_con
     """Protected route: returns the logged-in user's profile."""
     cursor = db.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT id, email, full_name, avatar_url, role, auth_provider FROM users WHERE email = %s", (current_user['sub'],))
+        cursor.execute(
+            "SELECT id, email, full_name, avatar_url, role, auth_provider, COALESCE(is_admin, 0) AS is_admin, matric_number FROM users WHERE email = %s",
+            (current_user["sub"],),
+        )
         user = cursor.fetchone()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+        user["is_admin"] = bool(user.get("is_admin"))
         return user
     except mysql.connector.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
@@ -361,36 +454,52 @@ def delete_my_account(
 
 
 @app.post("/auth/login", response_model=UserResponse)
-def login(login_data: LoginRequest, background_tasks: BackgroundTasks, db=Depends(get_db_connection)):
+def login(
+    login_data: LoginRequest,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    db=Depends(get_db_connection),
+):
     cursor = db.cursor(dictionary=True)
     try:
-        # Check if user exists (allow any auth provider if they have a password set)
         query = "SELECT * FROM users WHERE email = %s"
         cursor.execute(query, (login_data.email,))
         user = cursor.fetchone()
 
-        if not user or not user['password_hash'] or not verify_password(login_data.password, user['password_hash']):
+        if not user or not user.get("password_hash") or not verify_password(login_data.password, user["password_hash"]):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
-        # Send login alert email in the background (non-blocking)
-        background_tasks.add_task(send_login_alert_email, user['email'], user.get('full_name', 'User'))
-        
-        # Create Access Token
-        access_token = create_access_token(data={"sub": user['email'], "id": user['id'], "role": user['role'], "full_name": user.get('full_name')})
+
+        if user.get("is_suspended") in (1, True):
+            raise HTTPException(status_code=403, detail="Your account has been suspended. Contact an administrator.")
+
+        is_admin = user.get("is_admin") in (1, True) or (user.get("role") or "").lower() == "admin"
+        background_tasks.add_task(send_login_alert_email, user["email"], user.get("full_name", "User"))
+
+        access_token = create_access_token(data={
+            "sub": user["email"],
+            "id": user["id"],
+            "role": user["role"],
+            "is_admin": is_admin,
+            "full_name": user.get("full_name"),
+        })
+
+        ip = request.client.host if request.client else None
+        log_audit(db, user["id"], "LOGIN", None, "User logged in", ip)
 
         return {
-            "id": user['id'],
-            "email": user['email'],
-            "full_name": user['full_name'],
-            "avatar_url": user['avatar_url'],
-            "role": user['role'],
-            "auth_provider": user['auth_provider'],
+            "id": user["id"],
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "avatar_url": user["avatar_url"],
+            "role": user["role"],
+            "auth_provider": user["auth_provider"],
+            "is_admin": is_admin,
             "access_token": access_token,
-            "token_type": "bearer"
+            "token_type": "bearer",
         }
     except mysql.connector.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
@@ -466,26 +575,50 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
+    role: str = "student"
+    matric_number: Optional[str] = None
+
 
 def _register_user(user_data: RegisterRequest, db):
-    """Shared registration logic for /auth/register and /auth/signup."""
+    """Shared registration logic for /auth/register and /auth/signup. Enforces staff email and student matric."""
     cursor = db.cursor(dictionary=True)
     try:
-        # Check if email exists
+        role = (user_data.role or "visitor").lower()
+        allowed = {"student", "staff", "visitor"}
+        if role not in allowed:
+            raise HTTPException(status_code=400, detail="Invalid role. Use student, staff, or visitor.")
+
+        # Staff: must use @babcock.edu.ng
+        if role == "staff":
+            if not (user_data.email or "").lower().endswith("@babcock.edu.ng"):
+                raise HTTPException(status_code=400, detail="Staff accounts must use a @babcock.edu.ng email.")
+
+        # Student: require unique matric number
+        matric_number = None
+        if role == "student":
+            if not user_data.matric_number or not str(user_data.matric_number).strip():
+                raise HTTPException(status_code=400, detail="Matriculation number is required for students.")
+            matric_number = str(user_data.matric_number).strip()
+            cursor.execute("SELECT id FROM users WHERE matric_number = %s", (matric_number,))
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail="Matriculation number is already registered.")
+
+        # Check email uniqueness
         cursor.execute("SELECT id FROM users WHERE email = %s", (user_data.email,))
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Email already registered")
-        
+
         hashed_password = get_password_hash(user_data.password)
-        
         insert_query = """
-        INSERT INTO users (email, password_hash, full_name, auth_provider) 
-        VALUES (%s, %s, %s, 'email')
+        INSERT INTO users (email, password_hash, full_name, auth_provider, role, matric_number, is_admin)
+        VALUES (%s, %s, %s, 'email', %s, %s, 0)
         """
-        cursor.execute(insert_query, (user_data.email, hashed_password, user_data.full_name))
+        cursor.execute(insert_query, (user_data.email, hashed_password, user_data.full_name, role, matric_number))
         db.commit()
-        
+
         return {"message": "User registered successfully"}
+    except HTTPException:
+        raise
     except mysql.connector.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
@@ -631,6 +764,7 @@ def reset_password(data: ResetPasswordRequest, db=Depends(get_db_connection)):
 @app.post("/items", response_model=ItemResponse)
 async def create_item(
     background_tasks: BackgroundTasks,
+    request: Request,
     title: str = Form(...),
     description: Optional[str] = Form(None),
     status: str = Form("Found"),
@@ -680,6 +814,9 @@ async def create_item(
         ))
         db.commit()
         new_id = cursor.lastrowid
+
+        ip = request.client.host if request.client else None
+        log_audit(db, user_id, "ITEM_REPORTED", new_id, f"Reported: {title}", ip)
 
         # Queue email in background so response returns immediately
         background_tasks.add_task(
@@ -821,6 +958,7 @@ def get_item(
 @app.post("/claims", response_model=ClaimResponse)
 def create_claim(
     claim_data: ClaimCreate,
+    request: Request,
     current_user: dict = Depends(get_current_user),
     db=Depends(get_db_connection),
 ):
@@ -872,6 +1010,9 @@ def create_claim(
             conversation_id = cursor.lastrowid
 
         db.commit()
+
+        ip = request.client.host if request.client else None
+        log_audit(db, current_user["id"], "CLAIM_INITIATED", item["id"], f"Claimed: {item['title']}", ip)
 
         # 4. After claim and conversation are committed: insert automatic "Hi" from System user
         cursor.execute("SELECT id FROM users WHERE email = 'system@findit.internal' LIMIT 1")
@@ -2023,6 +2164,98 @@ VALID_LOCATIONS = [
     'The School Gate', 'Babcock Guest House (BGH)',
     'MSQ Gate', 'Medical Exit Gate',
 ]
+
+
+# ──────────────────────────────────────────────────────────
+# ADMIN: Audit logs & users (admin_required)
+# ──────────────────────────────────────────────────────────
+
+class AdminUserEntry(BaseModel):
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    role: str
+    matric_number: Optional[str] = None
+    is_admin: bool = False
+    is_suspended: bool = False
+    created_at: Optional[str] = None
+
+
+@app.get("/admin/audit-logs", response_model=List[AuditLogEntry])
+def get_admin_audit_logs(
+    limit: int = Query(100, ge=1, le=500),
+    admin=Depends(require_admin),
+    db=Depends(get_db_connection),
+):
+    """Return latest audit log entries for the admin dashboard."""
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT a.id, a.user_id, a.action, a.item_id, a.details, a.ip_address, a.created_at, u.full_name AS user_name
+            FROM audit_logs a
+            LEFT JOIN users u ON a.user_id = u.id
+            ORDER BY a.created_at DESC
+            LIMIT %s
+        """, (limit,))
+        rows = cursor.fetchall()
+        for r in rows:
+            if r.get("created_at"):
+                r["created_at"] = str(r["created_at"])
+        return rows
+    finally:
+        cursor.close()
+
+
+@app.get("/admin/users", response_model=List[AdminUserEntry])
+def get_admin_users(
+    admin=Depends(require_admin),
+    db=Depends(get_db_connection),
+):
+    """Return all registered users for admin user table."""
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT id, email, full_name, role, matric_number,
+                   COALESCE(is_admin, 0) AS is_admin, COALESCE(is_suspended, 0) AS is_suspended, created_at
+            FROM users
+            WHERE email != 'system@findit.internal'
+            ORDER BY created_at DESC
+        """)
+        rows = cursor.fetchall()
+        for r in rows:
+            r["is_admin"] = bool(r.get("is_admin"))
+            r["is_suspended"] = bool(r.get("is_suspended"))
+            if r.get("created_at"):
+                r["created_at"] = str(r["created_at"])
+        return rows
+    finally:
+        cursor.close()
+
+
+@app.post("/admin/users/{user_id}/suspend")
+def admin_toggle_suspend(
+    user_id: int,
+    admin=Depends(require_admin),
+    db=Depends(get_db_connection),
+):
+    """Toggle is_suspended for a user. Suspended users cannot log in."""
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT id, email, is_suspended FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if user["email"] == "system@findit.internal":
+            raise HTTPException(status_code=400, detail="Cannot suspend system user")
+        new_val = 0 if user.get("is_suspended") in (1, True) else 1
+        cursor.execute("UPDATE users SET is_suspended = %s WHERE id = %s", (new_val, user_id))
+        db.commit()
+        return {"user_id": user_id, "suspended": bool(new_val), "message": "User suspended." if new_val else "User unsuspended."}
+    except mysql.connector.Error as err:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
 
 
 @app.post("/admin/normalize-locations")
