@@ -76,18 +76,18 @@ export default function MessagesPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-[var(--color-background)]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#003898] dark:text-blue-400" />
+      <div className="flex justify-center items-center h-screen bg-white dark:bg-[#0f172a]">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400 dark:text-blue-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] pb-20 flex items-start justify-center pt-6 px-4">
+    <div className="min-h-screen bg-white dark:bg-[#0f172a] pb-20 flex items-start justify-center pt-6 px-4">
       {/* Main Card */}
-      <div className="w-full max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden border border-transparent dark:border-slate-700">
+      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-800 overflow-hidden">
         {/* Header */}
-        <div className="bg-white dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+        <div className="bg-white dark:bg-slate-900 px-6 py-5 border-b border-slate-100 dark:border-slate-800">
           <h1 className="text-xl font-bold text-[#003898] dark:text-white">My Messages</h1>
         </div>
 
@@ -100,9 +100,11 @@ export default function MessagesPage() {
           )}
 
           {conversations.length === 0 && !error ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-slate-400">
-              <MessageSquareOff size={48} className="mb-3 dark:text-slate-500" />
-              <p className="text-base font-medium text-slate-600 dark:text-slate-300">No messages found.</p>
+            <div className="flex flex-col items-center justify-center py-20 px-4 bg-[#F8FAFC] dark:bg-slate-800/50 rounded-xl m-2">
+              <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-sm mb-4">
+                <MessageSquareOff size={32} className="text-slate-400 dark:text-slate-500" />
+              </div>
+              <p className="text-base font-bold text-slate-700 dark:text-slate-200">No messages found.</p>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Start a claim to chat!</p>
             </div>
           ) : (
@@ -111,11 +113,11 @@ export default function MessagesPage() {
                 <Link
                   href={`/messages/${conv.id}`}
                   key={conv.id}
-                  className="block px-4 py-4 border-b border-slate-100 dark:border-slate-700 hover:bg-[#003898]/10 dark:hover:bg-slate-700/50 transition-colors last:border-b-0"
+                  className="block px-4 py-4 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors last:border-b-0"
                 >
                   <div className="flex items-start space-x-4">
                     {/* Avatar */}
-                    <div className="w-12 h-12 bg-blue-50 dark:bg-slate-600 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
                       {conv.other_user_avatar ? (
                         <img
                           src={conv.other_user_avatar}
@@ -123,7 +125,7 @@ export default function MessagesPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-base font-bold text-[#003898] dark:text-slate-200">
+                        <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
                           {conv.other_user_name.slice(0, 2).toUpperCase()}
                         </span>
                       )}
