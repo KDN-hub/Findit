@@ -76,18 +76,18 @@ export default function MessagesPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-white dark:bg-[#0f172a]">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400 dark:text-blue-400" />
+      <div className="flex justify-center items-center h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0f172a] pb-20 flex items-start justify-center pt-6 px-4">
+    <div className="min-h-screen bg-background pb-20 flex items-start justify-center pt-6 px-4">
       {/* Main Card */}
-      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-800 overflow-hidden">
+      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-divider overflow-hidden">
         {/* Header */}
-        <div className="bg-white dark:bg-slate-900 px-6 py-5 border-b border-slate-100 dark:border-slate-800">
+        <div className="bg-white dark:bg-slate-900 px-6 py-5 border-b border-divider">
           <h1 className="text-xl font-bold text-[#003898] dark:text-white">My Messages</h1>
         </div>
 
@@ -100,7 +100,7 @@ export default function MessagesPage() {
           )}
 
           {conversations.length === 0 && !error ? (
-            <div className="flex flex-col items-center justify-center py-20 px-4 bg-[#F8FAFC] dark:bg-slate-800/50 rounded-xl m-2">
+            <div className="flex flex-col items-center justify-center py-20 px-4 bg-surface dark:bg-slate-800/50 rounded-xl m-2">
               <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-sm mb-4">
                 <MessageSquareOff size={32} className="text-slate-400 dark:text-slate-500" />
               </div>

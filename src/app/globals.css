@@ -106,45 +106,45 @@ body {
 
 /* Dark mode utility classes */
 .dark .bg-white {
-  background-color: var(--color-surface) !important;
+  background-color: var(--color-surface);
 }
 
 .dark .bg-\[\#F8FAFC\],
 .dark .bg-\[\#F1F5F9\],
 .dark .bg-\[\#E8ECF4\] {
-  background-color: var(--color-surface-elevated) !important;
+  background-color: var(--color-surface-elevated);
 }
 
 .dark .text-slate-800,
 .dark .text-\[\#003898\] {
-  color: var(--color-foreground) !important;
+  color: var(--color-foreground);
 }
 
 .dark .text-slate-600,
 .dark .text-slate-500,
 .dark .text-\[\#6B7280\] {
-  color: var(--color-foreground-secondary) !important;
+  color: var(--color-foreground-secondary);
 }
 
 .dark .text-slate-400 {
-  color: var(--color-foreground-muted) !important;
+  color: var(--color-foreground-muted);
 }
 
 .dark .border-slate-100,
 .dark .border-slate-200 {
-  border-color: var(--color-border) !important;
+  border-color: var(--color-border);
 }
 
 .dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
-  border-color: var(--color-border) !important;
+  border-color: var(--color-border);
 }
 
 .dark input,
 .dark select,
 .dark textarea {
-  background-color: var(--color-input-bg) !important;
-  border-color: var(--color-input-border) !important;
-  color: var(--color-foreground) !important;
+  background-color: var(--color-input-bg);
+  border-color: var(--color-input-border);
+  color: var(--color-foreground);
 }
 
 .dark input::placeholder,
