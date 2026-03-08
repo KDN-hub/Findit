@@ -178,7 +178,11 @@ app.include_router(messaging.router, prefix="/api", tags=["messaging"])
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://finditapp-v1.vercel.app"],
+    allow_origins=[
+        "https://finditapp-v1.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,  # THIS MUST BE TRUE for profile data to show
     allow_methods=["*"],
     allow_headers=["*"],
@@ -315,6 +319,9 @@ class AuditLogEntry(BaseModel):
     ip_address: Optional[str] = None
     created_at: str
     user_name: Optional[str] = None
+    email: Optional[str] = None
+    matric_number: Optional[str] = None
+    role: Optional[str] = None
 
 
 def log_audit(db, user_id: Optional[int], action: str, item_id: Optional[int] = None, details: Optional[str] = None, ip_address: Optional[str] = None):
@@ -473,6 +480,19 @@ def login(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        # Enforce domain email for students and staff on login as an extra safety measure
+        role = (user.get("role") or "visitor").lower()
+        if role == "staff" and not (user["email"] or "").lower().endswith("@babcock.edu.ng"):
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Staff accounts must use a @babcock.edu.ng email address to login.",
+            )
+        if role == "student" and not (user["email"] or "").lower().endswith("@student.babcock.edu.ng"):
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Student accounts must use a @student.babcock.edu.ng email address to login.",
+            )
+
         if user.get("is_suspended") in (1, True):
             raise HTTPException(status_code=403, detail="Your account has been suspended. Contact an administrator.")
 
@@ -530,6 +550,10 @@ def google_login(login_data: GoogleLoginRequest, background_tasks: BackgroundTas
         user = cursor.fetchone()
         
         if not user:
+            # Enforce @student.babcock.edu.ng for new Google signups (which default to student)
+            if not email.lower().endswith("@student.babcock.edu.ng"):
+                raise HTTPException(status_code=403, detail="Student accounts must use a @student.babcock.edu.ng email address.")
+
             # Create new user
             insert_query = """
             INSERT INTO users (email, full_name, avatar_url, role, auth_provider) 
@@ -541,9 +565,12 @@ def google_login(login_data: GoogleLoginRequest, background_tasks: BackgroundTas
             # Fetch the newly created user
             cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
             user = cursor.fetchone()
+            
+            # Log registration
+            log_audit(db, user["id"], "REGISTER", None, "User registered via Google")
         else:
             # Update existing user info if needed
-            pass
+            log_audit(db, user["id"], "LOGIN", None, "User logged in via Google")
             
         access_token = create_access_token(data={"sub": user['email'], "id": user['id'], "role": user['role'], "full_name": user.get('full_name')})
 
@@ -588,10 +615,13 @@ def _register_user(user_data: RegisterRequest, db):
         if role not in allowed:
             raise HTTPException(status_code=400, detail="Invalid role. Use student, staff, or visitor.")
 
-        # Staff: must use @babcock.edu.ng
         if role == "staff":
             if not (user_data.email or "").lower().endswith("@babcock.edu.ng"):
                 raise HTTPException(status_code=400, detail="Staff accounts must use a @babcock.edu.ng email.")
+                
+        if role == "student":
+            if not (user_data.email or "").lower().endswith("@student.babcock.edu.ng"):
+                raise HTTPException(status_code=400, detail="Student accounts must use a @student.babcock.edu.ng email.")
 
         # Student: require unique matric number
         matric_number = None
@@ -615,6 +645,9 @@ def _register_user(user_data: RegisterRequest, db):
         """
         cursor.execute(insert_query, (user_data.email, hashed_password, user_data.full_name, role, matric_number))
         db.commit()
+        new_user_id = cursor.lastrowid
+        
+        log_audit(db, new_user_id, "REGISTER", None, "User registered via Email")
 
         return {"message": "User registered successfully"}
     except HTTPException:
@@ -2170,6 +2203,51 @@ VALID_LOCATIONS = [
 # ADMIN: Audit logs & users (admin_required)
 # ──────────────────────────────────────────────────────────
 
+class AdminAuthRequest(BaseModel):
+    passcode: str
+
+@app.post("/admin/auth")
+def admin_auth(req: AdminAuthRequest, db=Depends(get_db_connection)):
+    """Authenticates an admin purely using the system passcode, bypassing normal user registration."""
+    if req.passcode != "admin_12345":
+        raise HTTPException(status_code=401, detail="Invalid admin passcode")
+    
+    cursor = db.cursor(dictionary=True)
+    try:
+        # Check if the root admin user exists
+        cursor.execute("SELECT id, email, role, is_admin FROM users WHERE email = %s", ('root@admin.findit',))
+        admin_user = cursor.fetchone()
+        
+        if not admin_user:
+            # Provision the root admin dynamically
+            hashed_pw = get_password_hash("admin_12345")
+            cursor.execute(
+                """
+                INSERT INTO users (email, password_hash, full_name, role, is_admin)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                ('root@admin.findit', hashed_pw, 'System Admin', 'admin', True)
+            )
+            db.commit()
+            admin_id = cursor.lastrowid
+            admin_user = {"id": admin_id, "email": 'root@admin.findit', "role": 'admin', "is_admin": True}
+        
+        # Log this admin login dynamically
+        cursor.execute(
+            "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
+            (admin_user["id"], 'LOGIN', 'Admin authenticated via root passcode')
+        )
+        db.commit()
+        
+        # Generate token matching the frontend expected duration
+        access_token = create_access_token(
+            data={"sub": admin_user["email"], "id": admin_user["id"], "role": admin_user["role"], "full_name": "System Admin", "is_admin": True}
+        )
+        return {"access_token": access_token, "token_type": "bearer", "id": admin_user["id"]}
+    finally:
+        cursor.close()
+
+
 class AdminUserEntry(BaseModel):
     id: int
     email: str
@@ -2179,6 +2257,9 @@ class AdminUserEntry(BaseModel):
     is_admin: bool = False
     is_suspended: bool = False
     created_at: Optional[str] = None
+    total_reports: int = 0
+    total_claims: int = 0
+    last_login_at: Optional[str] = None
 
 
 @app.get("/admin/audit-logs", response_model=List[AuditLogEntry])
@@ -2191,7 +2272,8 @@ def get_admin_audit_logs(
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT a.id, a.user_id, a.action, a.item_id, a.details, a.ip_address, a.created_at, u.full_name AS user_name
+            SELECT a.id, a.user_id, a.action, a.item_id, a.details, a.ip_address, a.created_at, 
+                   u.full_name AS user_name, u.email, u.matric_number, u.role
             FROM audit_logs a
             LEFT JOIN users u ON a.user_id = u.id
             ORDER BY a.created_at DESC
@@ -2215,11 +2297,14 @@ def get_admin_users(
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT id, email, full_name, role, matric_number,
-                   COALESCE(is_admin, 0) AS is_admin, COALESCE(is_suspended, 0) AS is_suspended, created_at
-            FROM users
-            WHERE email != 'system@findit.internal'
-            ORDER BY created_at DESC
+            SELECT u.id, u.email, u.full_name, u.role, u.matric_number,
+                   COALESCE(u.is_admin, 0) AS is_admin, COALESCE(u.is_suspended, 0) AS is_suspended, u.created_at,
+                   (SELECT COUNT(*) FROM items WHERE user_id = u.id) AS total_reports,
+                   (SELECT COUNT(*) FROM claims WHERE user_id = u.id) AS total_claims,
+                   (SELECT MAX(created_at) FROM audit_logs WHERE user_id = u.id AND action IN ('LOGIN', 'REGISTER')) AS last_login_at
+            FROM users u
+            WHERE u.email NOT IN ('system@findit.internal', 'root@admin.findit')
+            ORDER BY u.created_at DESC
         """)
         rows = cursor.fetchall()
         for r in rows:
@@ -2227,10 +2312,144 @@ def get_admin_users(
             r["is_suspended"] = bool(r.get("is_suspended"))
             if r.get("created_at"):
                 r["created_at"] = str(r["created_at"])
+            if r.get("last_login_at"):
+                r["last_login_at"] = str(r["last_login_at"])
         return rows
     finally:
         cursor.close()
 
+
+class StuckHandoverEntry(BaseModel):
+    conversation_id: int
+    item_id: int
+    item_title: str
+    item_status: str
+    finder_id: int
+    finder_name: Optional[str] = None
+    finder_email: str
+    claimer_id: int
+    claimer_name: Optional[str] = None
+    claimer_email: str
+    finder_code_created_at: Optional[str] = None
+    claimer_code_created_at: Optional[str] = None
+
+class CompletedHandoverEntry(BaseModel):
+    claim_id: int
+    item_id: int
+    item_title: str
+    finder_name: Optional[str] = None
+    finder_email: str
+    claimer_name: Optional[str] = None
+    claimer_email: str
+    recovered_at: str
+
+class HandoversResponse(BaseModel):
+    stuck: List[StuckHandoverEntry]
+    completed: List[CompletedHandoverEntry]
+
+@app.get("/admin/handovers", response_model=HandoversResponse)
+def get_admin_handovers(admin=Depends(require_admin), db=Depends(get_db_connection)):
+    """Return stuck claims (>24h since code generated and not recovered) and completed handovers."""
+    cursor = db.cursor(dictionary=True)
+    try:
+        # Stuck claims: Conversations where a code was generated > 24h ago but item not recovered
+        cursor.execute("""
+            SELECT c.id AS conversation_id, c.item_id, i.title AS item_title, i.status AS item_status,
+                   c.finder_id, uf.full_name AS finder_name, uf.email AS finder_email,
+                   c.claimer_id, uc.full_name AS claimer_name, uc.email AS claimer_email,
+                   c.finder_code_created_at, c.claimer_code_created_at
+            FROM conversations c
+            JOIN items i ON c.item_id = i.id
+            JOIN users uf ON c.finder_id = uf.id
+            JOIN users uc ON c.claimer_id = uc.id
+            WHERE i.status NOT IN ('Recovered', 'Returned')
+              AND (
+                  (c.finder_code_created_at IS NOT NULL AND c.finder_code_created_at < NOW() - INTERVAL 1 DAY)
+                  OR 
+                  (c.claimer_code_created_at IS NOT NULL AND c.claimer_code_created_at < NOW() - INTERVAL 1 DAY)
+              )
+            ORDER BY GREATEST(IFNULL(c.finder_code_created_at, '1970-01-01'), IFNULL(c.claimer_code_created_at, '1970-01-01')) DESC
+        """)
+        stuck_rows = cursor.fetchall()
+        for r in stuck_rows:
+            if r.get("finder_code_created_at"): r["finder_code_created_at"] = str(r["finder_code_created_at"])
+            if r.get("claimer_code_created_at"): r["claimer_code_created_at"] = str(r["claimer_code_created_at"])
+
+        # Completed handovers: Claims where the item is Recovered
+        cursor.execute("""
+            SELECT cl.id AS claim_id, i.id AS item_id, i.title AS item_title,
+                   uf.full_name AS finder_name, uf.email AS finder_email,
+                   uc.full_name AS claimer_name, uc.email AS claimer_email,
+                   i.updated_at AS recovered_at
+            FROM claims cl
+            JOIN items i ON cl.item_id = i.id
+            JOIN users uc ON cl.user_id = uc.id
+            JOIN users uf ON i.user_id = uf.id
+            WHERE i.status IN ('Recovered', 'Returned')
+            ORDER BY i.updated_at DESC
+        """)
+        completed_rows = cursor.fetchall()
+        for r in completed_rows:
+            if r.get("recovered_at"): r["recovered_at"] = str(r["recovered_at"])
+
+        return {
+            "stuck": stuck_rows,
+            "completed": completed_rows
+        }
+    finally:
+        cursor.close()
+
+@app.get("/admin/tracking/stats")
+def get_tracking_stats(admin=Depends(require_admin), db=Depends(get_db_connection)):
+    """Returns daily counts of reports and claims for the last 30 days."""
+    cursor = db.cursor(dictionary=True)
+    try:
+        # Get reports per day
+        cursor.execute("""
+            SELECT DATE(created_at) as date, COUNT(*) as count 
+            FROM items 
+            WHERE created_at > NOW() - INTERVAL 30 DAY
+            GROUP BY DATE(created_at)
+            ORDER BY date DESC
+        """)
+        reports = cursor.fetchall()
+        for r in reports: r["date"] = str(r["date"])
+
+        # Get claims per day
+        cursor.execute("""
+            SELECT DATE(created_at) as date, COUNT(*) as count 
+            FROM claims 
+            WHERE created_at > NOW() - INTERVAL 30 DAY
+            GROUP BY DATE(created_at)
+            ORDER BY date DESC
+        """)
+        claims = cursor.fetchall()
+        for c in claims: c["date"] = str(c["date"])
+
+        return {"reports": reports, "claims": claims}
+    finally:
+        cursor.close()
+
+@app.get("/admin/tracking/timeline")
+def get_tracking_timeline(admin=Depends(require_admin), db=Depends(get_db_connection)):
+    """Returns a lifecycle view of items: when reported and when (first) claimed."""
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT i.id, i.title, i.created_at AS reported_at, i.status,
+                   (SELECT MIN(c.created_at) FROM claims c WHERE c.item_id = i.id) AS claimed_at,
+                   u.full_name AS reporter_name
+            FROM items i
+            JOIN users u ON i.user_id = u.id
+            ORDER BY i.created_at DESC
+        """)
+        rows = cursor.fetchall()
+        for r in rows:
+            if r.get("reported_at"): r["reported_at"] = str(r["reported_at"])
+            if r.get("claimed_at"): r["claimed_at"] = str(r["claimed_at"])
+        return rows
+    finally:
+        cursor.close()
 
 @app.post("/admin/users/{user_id}/suspend")
 def admin_toggle_suspend(
@@ -2297,17 +2516,50 @@ def normalize_locations(admin=Depends(require_admin), db=Depends(get_db_connecti
 
 @app.delete("/admin/wipe-items")
 def wipe_items(admin=Depends(require_admin), db=Depends(get_db_connection)):
-    """Permanently delete ALL items (and related claims, messages, conversations). User accounts are preserved."""
-    cursor = db.cursor()
+    """Permanently delete ALL data (items, claims, messages, conversations, logs, users). 
+    Preserves specialized root/system accounts for platform stability."""
+    cursor = db.cursor(dictionary=True)
     try:
+        # 1. Fetch all items with images to delete from Cloudinary
+        cursor.execute("SELECT id, image_url FROM items WHERE image_url IS NOT NULL")
+        items_with_images = cursor.fetchall()
+        
+        deleted_images_count = 0
+        if items_with_images:
+            try:
+                import cloudinary.uploader
+                for item in items_with_images:
+                    image_url = item.get("image_url")
+                    if image_url and "cloudinary.com" in image_url:
+                        try:
+                            parts = image_url.split('/')
+                            upload_idx = parts.index('upload')
+                            public_id_with_ext = "/".join(parts[upload_idx+2:])
+                            public_id = public_id_with_ext.rsplit('.', 1)[0]
+                            cloudinary.uploader.destroy(public_id)
+                            deleted_images_count += 1
+                        except Exception as e:
+                            print(f"Warning: Cloudinary error for item {item['id']}: {e}")
+            except Exception as e:
+                print(f"Warning: Cloudinary logic failure during wipe: {e}")
+
+        # 2. Delete from database in dependency order
         cursor.execute("DELETE FROM messages")
         cursor.execute("DELETE FROM claims")
         cursor.execute("DELETE FROM conversations")
         cursor.execute("DELETE FROM items")
+        cursor.execute("DELETE FROM audit_logs")
+        
+        # 3. Delete users except system and the root admin
+        cursor.execute("""
+            DELETE FROM users 
+            WHERE email NOT IN ('system@findit.internal', 'root@admin.findit')
+        """)
+        
         db.commit()
 
-        print("[WIPE] All items, claims, messages, and conversations deleted.")
-        return {"message": "All dummy items have been permanently deleted. The database is clean."}
+        print(f"[WIPE] Full database reset performed. {deleted_images_count} images removed.")
+        return {"message": f"Full reset complete. Items, users (except root), and logs cleared. {deleted_images_count} images removed from Cloudinary."}
     except mysql.connector.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
@@ -2317,13 +2569,31 @@ def wipe_items(admin=Depends(require_admin), db=Depends(get_db_connection)):
 
 @app.delete("/admin/items/{item_id}")
 def delete_single_item(item_id: int, admin=Depends(require_admin), db=Depends(get_db_connection)):
-    """Delete a single item by ID, along with its related messages, claims, and conversations."""
+    """Delete a single item by ID, along with its related messages, claims, and conversations. Also cleans up Cloudinary."""
     cursor = db.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT id, title FROM items WHERE id = %s", (item_id,))
+        cursor.execute("SELECT id, title, image_url FROM items WHERE id = %s", (item_id,))
         item = cursor.fetchone()
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
+
+        # Delete image from Cloudinary
+        image_url = item.get("image_url")
+        if image_url and "cloudinary.com" in image_url:
+            try:
+                import cloudinary.uploader
+                parts = image_url.split('/')
+                try:
+                    upload_idx = parts.index('upload')
+                    # format: e.g. /upload/v12345/findit_items/abcdefg.png
+                    public_id_with_ext = "/".join(parts[upload_idx+2:])
+                    public_id = public_id_with_ext.rsplit('.', 1)[0]
+                    print(f"[CLOUDINARY] Destroying image with public_id: {public_id}")
+                    cloudinary.uploader.destroy(public_id)
+                except ValueError:
+                    print(f"Warning: Could not parse Cloudinary URL: {image_url}")
+            except Exception as e:
+                print(f"Warning: Cloudinary deletion failed: {e}")
 
         cursor.execute("DELETE FROM messages WHERE item_id = %s", (item_id,))
         cursor.execute("DELETE FROM claims WHERE item_id = %s", (item_id,))

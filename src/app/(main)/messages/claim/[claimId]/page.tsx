@@ -8,6 +8,7 @@ import Link from "next/link";
 import IdentityVerificationCard from "@/components/IdentityVerificationCard";
 import HandoverCodeCard from "@/components/HandoverCodeCard";
 import HandoverCodeEntry from "@/components/HandoverCodeEntry";
+import { useModal } from "@/context/ModalContext";
 
 interface Message {
     id: number;
@@ -37,6 +38,7 @@ export default function ChatPage() {
     const claimIdStr = params?.claimId as string;
     const claimId = parseInt(claimIdStr);
     const router = useRouter();
+    const { showAlert, showConfirm } = useModal();
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [claim, setClaim] = useState<Claim | null>(null);
@@ -136,7 +138,7 @@ export default function ChatPage() {
             setNewMessage("");
             fetchMessages();
         } catch (err: any) {
-            alert(err.message || "Failed to send");
+            showAlert({ title: "Message Error", message: err.message || "Failed to send message.", type: "danger" });
         } finally {
             setSending(false);
         }
@@ -144,7 +146,12 @@ export default function ChatPage() {
 
     // Actions
     const handleRequestIdentity = async () => {
-        if (!confirm("Ask the claimer to verify their identity?")) return;
+        const confirmed = await showConfirm({
+            title: "Verification Request",
+            message: "Ask the claimer to verify their identity? They will be asked to provide proof of ownership.",
+            confirmText: "Request Verification"
+        });
+        if (!confirmed) return;
         try {
             await apiFetch("/api/claims/request-identity", {
                 method: "POST",
@@ -153,12 +160,17 @@ export default function ChatPage() {
             refreshClaimStatus(claimId);
             fetchMessages();
         } catch (err: any) {
-            alert(err.message);
+            showAlert({ title: "Error", message: err.message, type: "danger" });
         }
     };
 
     const handleInitiateHandover = async () => {
-        if (!confirm("Are you ready to hand over the item?")) return;
+        const confirmed = await showConfirm({
+            title: "Initiate Handover",
+            message: "Are you ready to hand over the item? This will generate a secure code for the rendezvous.",
+            confirmText: "Generate Code"
+        });
+        if (!confirmed) return;
         try {
             await apiFetch("/api/claims/initiate-handover", {
                 method: "POST",
@@ -167,12 +179,17 @@ export default function ChatPage() {
             refreshClaimStatus(claimId);
             fetchMessages();
         } catch (err: any) {
-            alert(err.message);
+            showAlert({ title: "Error", message: err.message, type: "danger" });
         }
     };
 
     const handleReject = async () => {
-        if (!confirm("Are you sure you want to reject this claim? This cannot be undone.")) return;
+        const confirmed = await showConfirm({
+            title: "Reject Claim",
+            message: "Are you sure you want to reject this claim? This action is permanent and cannot be undone.",
+            confirmText: "Reject Claim"
+        });
+        if (!confirmed) return;
         try {
             await apiFetch("/api/claims/reject", {
                 method: "POST",
@@ -182,7 +199,7 @@ export default function ChatPage() {
             fetchMessages();
             router.push("/messages");
         } catch (err: any) {
-            alert(err.message);
+            showAlert({ title: "Error", message: err.message, type: "danger" });
         }
     };
 
@@ -308,8 +325,8 @@ export default function ChatPage() {
                         >
                             <div
                                 className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm ${isMe
-                                        ? "bg-[#6B3A4D] text-white rounded-tr-none"
-                                        : "bg-white text-gray-800 rounded-tl-none border border-gray-100"
+                                    ? "bg-[#6B3A4D] text-white rounded-tr-none"
+                                    : "bg-white text-gray-800 rounded-tl-none border border-gray-100"
                                     }`}
                             >
                                 <p>{msg.content}</p>

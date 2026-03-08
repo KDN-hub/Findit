@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { API_BASE_URL } from '@/lib/config';
+import { useModal } from '@/context/ModalContext';
 
 export interface VerifyIdentityModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ export interface VerifyIdentityModalProps {
 }
 
 export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId, isFinder, onClose, onSuccess }: VerifyIdentityModalProps) {
+  const { showAlert } = useModal();
   // Never render if not open
   if (!isOpen) return null;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,7 +83,7 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
-        alert("You must be logged in to verify.");
+        showAlert({ title: 'Authentication Required', message: 'You must be logged in to verify your identity.', type: 'danger' });
         return;
       }
 
@@ -99,13 +101,13 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
         throw new Error(errorData.detail || 'Failed to submit verification');
       }
 
-      alert('Verification sent to chat!');
+      await showAlert({ title: 'Success', message: 'Verification details sent to chat! The finder will review and respond soon.', type: 'success' });
       onSuccess?.();
       onClose?.();
 
     } catch (error: any) {
       console.error("Verification submit error:", error);
-      alert(error.message || "An error occurred during submission.");
+      showAlert({ title: 'Submission Error', message: error.message || "An error occurred during submission. Please try again.", type: 'danger' });
     } finally {
       setIsSubmitting(false);
     }
@@ -190,7 +192,7 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
           ) : step < 4 ? (
             'Next Question'
           ) : (
-            'Submit Verification' 
+            'Submit Verification'
           )}
         </button>
 

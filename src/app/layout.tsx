@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter_Tight } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { ModalProvider } from '@/context/ModalContext';
 import './globals.css';
 
 const interTight = Inter_Tight({
@@ -44,8 +45,10 @@ export default function RootLayout({
     <html lang="en" className={interTight.variable} suppressHydrationWarning>
       <body className={`${interTight.variable} ${interTight.className} antialiased`}>
         <ThemeProvider>
-          <main className="min-h-dvh">{children}</main>
-          <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+          <ModalProvider>
+            <main className="min-h-dvh">{children}</main>
+            <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+          </ModalProvider>
         </ThemeProvider>
       </body>
     </html>

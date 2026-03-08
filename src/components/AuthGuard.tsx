@@ -10,11 +10,30 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
+
     if (!token) {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
-    } else {
-      setChecked(true);
+      if (pathname !== '/admin') {
+        router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+      } else {
+        setChecked(true);
+      }
+      return;
     }
+
+    // Role Segregation: System Admin (root@admin.findit) should only be in /admin
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const isSystemAdmin = payload.sub === 'root@admin.findit';
+
+      if (isSystemAdmin && pathname !== '/admin') {
+        router.replace('/admin');
+        return;
+      }
+    } catch (e) {
+      console.error("AuthGuard: Token decode failed", e);
+    }
+
+    setChecked(true);
   }, [router, pathname]);
 
   if (!checked) {

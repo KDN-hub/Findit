@@ -6,12 +6,14 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { API_BASE_URL } from '@/lib/config';
 import { signOutAction } from '@/actions/auth';
+import { useModal } from '@/context/ModalContext';
 
 type ThemeOption = 'light' | 'dark';
 
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { showAlert, showConfirm } = useModal();
   const [isAdmin, setIsAdmin] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [notifications, setNotifications] = useState({
@@ -34,7 +36,7 @@ export default function SettingsPage() {
     fetch(`${API_BASE_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setIsAdmin(!!data.is_admin))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   return (
@@ -211,9 +213,9 @@ export default function SettingsPage() {
                     const names = await caches.keys();
                     await Promise.all(names.map((name) => caches.delete(name)));
                   }
-                  alert('Cache cleared. Stored data has been freed.');
+                  showAlert({ title: 'Cache Cleared', message: 'Stored data has been freed. The app will be faster and fresher next time you load.', type: 'success' });
                 } catch {
-                  alert('Cache cleared.');
+                  showAlert({ title: 'Cache Cleared', message: 'Local storage has been refreshed.' });
                 }
               }}
               isDark={isDark}
@@ -269,7 +271,12 @@ export default function SettingsPage() {
             <button
               disabled={deleting}
               onClick={async () => {
-                if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) return;
+                const confirmed = await showConfirm({
+                  title: 'Delete Account',
+                  message: 'Are you sure you want to delete your account? This action is permanent and cannot be undone. All your data will be cleared.',
+                  confirmText: 'Delete My Account',
+                });
+                if (!confirmed) return;
                 setDeleting(true);
                 try {
                   const token = localStorage.getItem('access_token');
@@ -279,7 +286,7 @@ export default function SettingsPage() {
                   });
                   if (!res.ok) {
                     const data = await res.json().catch(() => ({}));
-                    alert(data.detail || 'Failed to delete account');
+                    showAlert({ title: 'Error', message: data.detail || 'Failed to delete account.', type: 'danger' });
                     setDeleting(false);
                     return;
                   }
@@ -288,7 +295,7 @@ export default function SettingsPage() {
                   router.push('/');
                   router.refresh();
                 } catch {
-                  alert('Could not connect to the server.');
+                  showAlert({ title: 'Error', message: 'Could not connect to the server. Please check your connection.', type: 'danger' });
                   setDeleting(false);
                 }
               }}
