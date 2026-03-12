@@ -19,6 +19,7 @@ function fileToDataUrl(file: File): Promise<string> {
 
 const categories = [
   'Electronics',
+  'Mobile Devices',
   'ID Cards',
   'ATM Card',
   'Books',
@@ -120,7 +121,7 @@ export default function ReportItemPage() {
           throw new Error(errData?.detail || `Server error: ${res.status}`);
         }
 
-        setTimeout(() => router.push('/dashboard'), 2000);
+        // Success — modal is shown with OK/X buttons, user navigates manually
       } catch (err: unknown) {
         const isNetworkError =
           err instanceof TypeError && (err.message === 'Failed to fetch' || (err as TypeError).name === 'TypeError') ||
@@ -173,7 +174,7 @@ export default function ReportItemPage() {
             toast.success('Report uploaded successfully.');
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     });
   }, []);
 
@@ -276,9 +277,8 @@ export default function ReportItemPage() {
             />
             <label
               htmlFor="photo-upload"
-              className={`flex flex-col items-center justify-center w-full h-32 bg-[#F1F5F9] rounded-xl border-2 border-dashed cursor-pointer hover:bg-slate-100 transition-colors overflow-hidden ${
-                reportType === 'found' && !imagePreview ? 'border-slate-300' : 'border-slate-300'
-              }`}
+              className={`flex flex-col items-center justify-center w-full h-32 bg-[#F1F5F9] rounded-xl border-2 border-dashed cursor-pointer hover:bg-slate-100 transition-colors overflow-hidden ${reportType === 'found' && !imagePreview ? 'border-slate-300' : 'border-slate-300'
+                }`}
             >
               {imagePreview ? (
                 <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
@@ -356,11 +356,10 @@ export default function ReportItemPage() {
                 setCampusStatus('on_campus');
                 setOffCampusLocation('');
               }}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                campusStatus === 'on_campus'
-                  ? 'bg-white text-[#003898] shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${campusStatus === 'on_campus'
+                ? 'bg-white text-[#003898] shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+                }`}
             >
               On Campus
             </button>
@@ -371,11 +370,10 @@ export default function ReportItemPage() {
                 setSelectedLocation('');
                 setCustomLocation('');
               }}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                campusStatus === 'off_campus'
-                  ? 'bg-white text-[#003898] shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${campusStatus === 'off_campus'
+                ? 'bg-white text-[#003898] shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+                }`}
             >
               Off Campus
             </button>
@@ -504,7 +502,17 @@ export default function ReportItemPage() {
       {/* Success Modal */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-6">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-xl animate-slide-up text-center">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-xl animate-slide-up text-center relative">
+            {/* X Close Icon */}
+            <button
+              onClick={() => { setShowSuccess(false); router.push('/dashboard'); }}
+              className="absolute top-4 right-4 w-8 h-8 bg-[#F1F5F9] rounded-full flex items-center justify-center hover:bg-slate-200 transition-colors"
+            >
+              <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -513,11 +521,19 @@ export default function ReportItemPage() {
             <h2 className="text-xl font-bold text-[#003898] mb-2">
               {reportType === 'found' ? 'Item Reported!' : 'Lost Item Posted!'}
             </h2>
-            <p className="text-slate-500 text-sm">
+            <p className="text-slate-500 text-sm mb-6">
               {reportType === 'found'
                 ? 'Your found item has been added successfully. The owner will be able to find and claim it.'
                 : 'Your lost item has been posted. We\'ll notify you if someone finds a match!'}
             </p>
+
+            {/* OK Button */}
+            <button
+              onClick={() => { setShowSuccess(false); router.push('/dashboard'); }}
+              className="w-full h-12 bg-[#003898] hover:bg-[#002b7a] text-white font-semibold rounded-xl transition-all shadow-lg active:scale-95"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

@@ -7,12 +7,13 @@ export interface VerifyIdentityModalProps {
   conversationId: number;
   itemTitle?: string;
   itemId?: number;
+  itemCategory?: string;
   isFinder?: boolean;
   onClose?: () => void;
   onSuccess?: () => void;
 }
 
-export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId, isFinder, onClose, onSuccess }: VerifyIdentityModalProps) {
+export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId, itemCategory, isFinder, onClose, onSuccess }: VerifyIdentityModalProps) {
   const { showAlert } = useModal();
   // Never render if not open
   if (!isOpen) return null;
@@ -25,7 +26,10 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
     question4: '',
   });
 
-  const questions = [
+  // Conditionally include wallpaper question only for Mobile Devices / Electronics
+  const showWallpaper = itemCategory === 'Mobile Devices' || itemCategory === 'Electronics';
+
+  const allQuestions = [
     {
       id: 'question1',
       question: 'What color is the item?',
@@ -36,11 +40,11 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
       question: 'Describe any unique marks or features',
       placeholder: 'e.g., Scratches, stickers, engravings...',
     },
-    {
+    ...(showWallpaper ? [{
       id: 'question3',
       question: 'Describe or tell us what your wallpaper is',
       placeholder: 'e.g., A photo of my dog, default blue lock screen...',
-    },
+    }] : []),
     {
       id: 'question4',
       question: 'What was the last thing you did with the item?',
@@ -48,11 +52,12 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
     },
   ];
 
-  const currentQuestion = questions[step - 1];
+  const totalSteps = allQuestions.length;
+  const currentQuestion = allQuestions[step - 1];
   const currentAnswer = answers[currentQuestion?.id as keyof typeof answers] || '';
 
   const handleNext = () => {
-    if (step < 4) {
+    if (step < totalSteps) {
       setStep(step + 1);
     } else {
       handleSubmit();
@@ -72,13 +77,8 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
 
     setIsSubmitting(true);
 
-    // Construct the payload as a list of answers
-    const answersList = [
-      answers.question1,
-      answers.question2,
-      answers.question3,
-      answers.question4,
-    ];
+    // Construct the payload as a list of answers (variable length based on questions shown)
+    const answersList = allQuestions.map(q => answers[q.id as keyof typeof answers] || '');
 
     try {
       const token = localStorage.getItem('access_token');
@@ -145,10 +145,10 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
 
         {/* Progress Indicator */}
         <div className="flex items-center gap-2 mb-6">
-          {[1, 2, 3, 4].map((s) => (
+          {allQuestions.map((_, i) => (
             <div
-              key={s}
-              className={`flex-1 h-1.5 rounded-full transition-colors ${s <= step ? 'bg-[#003898]' : 'bg-[#E8ECF4]'
+              key={i}
+              className={`flex-1 h-1.5 rounded-full transition-colors ${i + 1 <= step ? 'bg-[#003898]' : 'bg-[#E8ECF4]'
                 }`}
             />
           ))}
@@ -162,7 +162,7 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
 
         {/* Question */}
         <div className="mb-6">
-          <p className="text-sm text-slate-500 mb-1">Question {step} of 4</p>
+          <p className="text-sm text-slate-500 mb-1">Question {step} of {totalSteps}</p>
           <h3 className="text-lg font-semibold text-slate-800 mb-4">
             {currentQuestion?.question}
           </h3>
@@ -189,7 +189,7 @@ export function VerifyIdentityModal({ isOpen, conversationId, itemTitle, itemId,
               </svg>
               Submitting...
             </>
-          ) : step < 4 ? (
+          ) : step < totalSteps ? (
             'Next Question'
           ) : (
             'Submit Verification'

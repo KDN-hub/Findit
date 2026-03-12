@@ -14,6 +14,7 @@ function formatMessageTime(dateStr: string): string {
   return date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: true,
   });
 }
 
@@ -52,6 +53,7 @@ export default function ConversationPage() {
   const [isHandoverComplete, setIsHandoverComplete] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -127,7 +129,19 @@ export default function ConversationPage() {
       });
       if (msgRes.ok) {
         const data = await msgRes.json();
-        if (data.length > 0) setMessages(data);
+        if (data.length > 0) {
+          // Detect handover success from either side
+          if (!isHandoverComplete) {
+            const hasHandoverSuccess = data.some(
+              (msg: ChatMessage) => msg.content?.includes('Handover Verified')
+            );
+            if (hasHandoverSuccess) {
+              setIsHandoverComplete(true);
+              setShowSuccessAnimation(true);
+            }
+          }
+          setMessages(data);
+        }
       }
     } catch (err) {
       console.error("Silent fetch failed", err);
@@ -152,6 +166,8 @@ export default function ConversationPage() {
 
   const handleSend = async () => {
     if (!message.trim() || !conversation || !currentUser) return;
+    if (sendingRef.current) return; // Prevent double-post
+    sendingRef.current = true;
 
     try {
       const receiverId = conversation.other_user.id;
@@ -165,6 +181,8 @@ export default function ConversationPage() {
       }
     } catch (error) {
       console.error("Failed to send", error);
+    } finally {
+      sendingRef.current = false;
     }
   };
 
@@ -225,8 +243,8 @@ export default function ConversationPage() {
         )}
       </header>
 
-      {/* Action Bar - Identity Verification (Only for Claimers) */}
-      {conversation && isClaimer && currentUser && conversation.item.owner_id !== currentUser.id && (
+      {/* Action Bar - Identity Verification (Only for Claimers, hide after submission) */}
+      {conversation && isClaimer && currentUser && conversation.item.owner_id !== currentUser.id && !conversation.verification_submitted && (
         <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-700">
@@ -334,6 +352,7 @@ export default function ConversationPage() {
           conversationId={conversationId}
           itemId={conversation.item.id}
           itemTitle={conversation.item.title}
+          itemCategory={conversation.item.category}
           isFinder={isFinder}
           onClose={() => setIsVerifyModalOpen(false)}
           onSuccess={() => {

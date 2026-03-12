@@ -115,7 +115,17 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
             {children}
             {isOpen && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-100 w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-100 w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 relative">
+                        {/* X Close Icon */}
+                        <button
+                            onClick={handleCancel}
+                            className="absolute top-4 right-4 w-8 h-8 bg-[#F1F5F9] rounded-full flex items-center justify-center hover:bg-slate-200 transition-colors z-10"
+                        >
+                            <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+
                         <div className="p-8 text-center">
                             {getIcon()}
                             {options.title && (
@@ -151,8 +161,8 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
                                 autoFocus={modalType !== 'prompt'}
                                 onClick={handleConfirm}
                                 className={`flex-1 px-6 py-3.5 rounded-2xl font-bold transition-all shadow-lg active:scale-95 text-white ${options.type === 'danger' || options.message.includes('DANGER') || options.confirmText?.toLowerCase().includes('delete')
-                                        ? 'bg-red-600 hover:bg-red-700 shadow-red-200'
-                                        : 'bg-[#003898] hover:bg-[#002b7a] shadow-blue-200'
+                                    ? 'bg-red-600 hover:bg-red-700 shadow-red-200'
+                                    : 'bg-[#003898] hover:bg-[#002b7a] shadow-blue-200'
                                     }`}
                             >
                                 {options.confirmText || 'OK'}

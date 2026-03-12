@@ -88,7 +88,9 @@ interface TrackingStats {
 
 function formatTimeAgo(dateStr: string): string {
     try {
-        const d = new Date(dateStr);
+        // Treat timestamps as UTC if no timezone info is present
+        const utcStr = dateStr.includes('Z') || dateStr.includes('+') || dateStr.includes('T') ? dateStr : dateStr + 'Z';
+        const d = new Date(utcStr);
         const diffMs = Date.now() - d.getTime();
         const diffMins = Math.floor(diffMs / 60000);
         const diffHours = Math.floor(diffMs / 3600000);
@@ -97,7 +99,7 @@ function formatTimeAgo(dateStr: string): string {
         if (diffMins < 60) return `${diffMins}m ago`;
         if (diffHours < 24) return `${diffHours}h ago`;
         if (diffDays < 7) return `${diffDays}d ago`;
-        return d.toLocaleDateString();
+        return d.toLocaleString('en-NG', { timeZone: 'Africa/Lagos', dateStyle: 'medium', timeStyle: 'short' });
     } catch {
         return dateStr;
     }

@@ -60,9 +60,11 @@ export interface ConversationDetail {
         image_url?: string;
         status: string;
         owner_id?: number;
+        category?: string;
     };
     other_user: UserTiny;
     is_finder: boolean;  // True if current user is the finder (item owner)
+    verification_submitted: boolean;
 }
 
 export async function getConversationDetail(conversationId: number): Promise<ConversationDetail | null> {

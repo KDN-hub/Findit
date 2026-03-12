@@ -328,9 +328,10 @@ def log_audit(db, user_id: Optional[int], action: str, item_id: Optional[int] = 
     """Record an audit event. Does not raise; logs errors."""
     cursor = db.cursor()
     try:
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)  # Store as naive UTC in MySQL
         cursor.execute(
-            "INSERT INTO audit_logs (user_id, action, item_id, details, ip_address) VALUES (%s, %s, %s, %s, %s)",
-            (user_id, action, item_id, details, ip_address),
+            "INSERT INTO audit_logs (user_id, action, item_id, details, ip_address, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+            (user_id, action, item_id, details, ip_address, now_utc),
         )
         db.commit()
     except Exception as e:
@@ -1274,12 +1275,14 @@ class ItemTiny(BaseModel):
     title: str
     image_url: Optional[str] = None
     status: str
+    category: Optional[str] = None
 
 class ConversationDetail(BaseModel):
     id: int
     item: ItemTiny
     other_user: UserTiny
     is_finder: bool  # True if current user is the finder (item owner)
+    verification_submitted: bool = False
 
 @app.get("/conversations/{conversation_id}", response_model=ConversationDetail)
 def get_conversation(
@@ -1299,6 +1302,7 @@ def get_conversation(
             SELECT 
                 c.id, c.item_id, c.finder_id, c.claimer_id,
                 i.title as item_title, i.image_url as item_image_url, i.status as item_status,
+                i.category as item_category,
                 uf.id as finder_id, uf.email as finder_email, uf.full_name as finder_name, uf.avatar_url as finder_avatar,
                 uc.id as claimer_id, uc.email as claimer_email, uc.full_name as claimer_name, uc.avatar_url as claimer_avatar
             FROM conversations c
@@ -1312,6 +1316,14 @@ def get_conversation(
         
         if not conv:
             raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Check if verification has been submitted (message-based detection)
+        cursor.execute("""
+            SELECT 1 FROM messages
+            WHERE item_id = %s AND content LIKE %s
+            LIMIT 1
+        """, (conv['item_id'], '%Identity Verification Submitted%'))
+        verification_submitted = cursor.fetchone() is not None
 
         # Determine other user logic and if current user is finder
         is_finder = current_user_id == conv['finder_id']
@@ -1337,10 +1349,12 @@ def get_conversation(
                 "id": conv["item_id"],
                 "title": conv["item_title"],
                 "image_url": conv["item_image_url"],
-                "status": conv["item_status"]
+                "status": conv["item_status"],
+                "category": conv.get("item_category"),
             },
             "other_user": other_user_data,
-            "is_finder": is_finder
+            "is_finder": is_finder,
+            "verification_submitted": verification_submitted,
         }
 
     except mysql.connector.Error as err:
@@ -1991,13 +2005,18 @@ def submit_verification(
         receiver_id = convo['claimer_id'] if current_user_id == convo['finder_id'] else convo['finder_id']
         item_id = convo['item_id']
         
-        # 3. Format the verification message (must match frontend VerifyIdentityModal order)
+        # 3. Format the verification message — wallpaper question only for Mobile Devices / Electronics
+        cursor.execute("SELECT category FROM items WHERE id = %s", (item_id,))
+        item_row = cursor.fetchone()
+        item_category = (item_row or {}).get("category", "")
+
         questions = [
             "What color is the item?",
             "Describe any unique marks or features",
-            "Describe or tell us what your wallpaper is",
-            "What was the last thing you did with the item?",
         ]
+        if item_category in ("Mobile Devices", "Electronics"):
+            questions.append("Describe or tell us what your wallpaper is")
+        questions.append("What was the last thing you did with the item?")
         
         message_content = "🛡️ Identity Verification Submitted\n\n"
         for i, (question, answer) in enumerate(zip(questions, verification_data.answers), 1):
