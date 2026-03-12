@@ -46,11 +46,15 @@ def start_claim(
         current_user_id = current_user['id']
         
         # 1. Get item and finder
-        cursor.execute("SELECT id, user_id, title FROM items WHERE id = %s", (request.item_id,))
+        cursor.execute("SELECT id, user_id, title, status FROM items WHERE id = %s", (request.item_id,))
         item = cursor.fetchone()
         
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
+
+        # Block claims on items that have already been returned
+        if item.get('status') in ('Recovered', 'Returned'):
+            raise HTTPException(status_code=400, detail="This item has already been successfully returned")
             
         finder_id = item['user_id']
         

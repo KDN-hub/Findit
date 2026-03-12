@@ -225,8 +225,8 @@ export default function ItemDetailsPage() {
         <div className="mb-6 flex items-center gap-2 flex-wrap">
           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'Found' ? 'bg-green-100 text-green-800' :
             item.status === 'Lost' ? 'bg-red-100 text-red-800' :
-            item.status === 'Recovered' ? 'bg-emerald-100 text-emerald-800' :
-              'bg-blue-100 text-blue-800'
+              item.status === 'Recovered' ? 'bg-emerald-100 text-emerald-800' :
+                'bg-blue-100 text-blue-800'
             }`}>
             {item.status}
           </span>
@@ -309,12 +309,12 @@ export default function ItemDetailsPage() {
 
         {/* Claim Item / Recovered Button */}
         <div className="mt-8">
-          {item.status === 'Recovered' ? (
+          {item.status === 'Recovered' || item.status === 'Returned' ? (
             <div className="w-full bg-green-600 text-white text-center py-3 px-6 rounded-lg font-semibold cursor-default flex items-center justify-center gap-2">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
-              Recovered
+              Already Returned
             </div>
           ) : currentUserId !== null && currentUserId === item.user_id ? (
             <div className="w-full bg-slate-100 border border-slate-200 text-slate-600 text-center py-3 px-6 rounded-lg font-medium">

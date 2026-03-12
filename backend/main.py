@@ -1019,6 +1019,10 @@ def create_claim(
         if item["user_id"] == current_user["id"]:
             raise HTTPException(status_code=400, detail="You cannot claim your own item")
 
+        # Block claims on items that have already been returned
+        if item.get("status") in ("Recovered", "Returned"):
+            raise HTTPException(status_code=400, detail="This item has already been successfully returned")
+
         # 2. Save Claim
         insert_claim_query = """
             INSERT INTO claims (user_id, item_id, proof_description, proof_image_url)

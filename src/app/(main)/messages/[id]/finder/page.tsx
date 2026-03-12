@@ -84,7 +84,7 @@ export default function FinderConversationPage() {
           },
         }));
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [conversationId, isNumericId]);
 
   const scrollToBottom = () => {
@@ -247,11 +247,10 @@ export default function FinderConversationPage() {
 
                 {/* Message Bubble */}
                 <div
-                  className={`max-w-[75%] px-4 py-3 rounded-2xl ${
-                    msg.is_mine
+                  className={`max-w-[75%] px-4 py-3 rounded-2xl ${msg.is_mine
                       ? 'bg-[#E8ECF4] rounded-br-md'
                       : 'bg-[#F1F5F9] rounded-bl-md'
-                  }`}
+                    }`}
                 >
                   <p className="text-sm text-slate-800 leading-relaxed">{msg.content}</p>
                   <p className={`text-xs text-slate-400 mt-1 ${msg.is_mine ? 'text-right' : 'text-left'}`}>
@@ -268,42 +267,51 @@ export default function FinderConversationPage() {
 
       {/* Input Area */}
       <div className="px-4 py-3 border-t border-slate-100 safe-area-bottom bg-white">
-        <div className="flex items-center gap-3">
-          {/* Text Input */}
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message"
-              className="w-full h-12 pl-4 pr-12 bg-[#F1F5F9] rounded-full text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#003898] transition-all"
-            />
-            {/* Attachment Button */}
-            <button className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-              </svg>
+        {isHandedOver ? (
+          <div className="flex items-center justify-center gap-2 py-3 text-sm text-slate-500">
+            <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>This conversation is closed. The item has been returned.</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            {/* Text Input */}
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your message"
+                className="w-full h-12 pl-4 pr-12 bg-[#F1F5F9] rounded-full text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#003898] transition-all"
+              />
+              {/* Attachment Button */}
+              <button className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Voice/Send Button */}
+            <button
+              onClick={handleSend}
+              className="w-12 h-12 bg-[#003898] rounded-full flex items-center justify-center shrink-0 transition-all hover:bg-[#1E40AF] active:scale-95"
+            >
+              {message.trim() ? (
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                </svg>
+              )}
             </button>
           </div>
-
-          {/* Voice/Send Button */}
-          <button
-            onClick={handleSend}
-            className="w-12 h-12 bg-[#003898] rounded-full flex items-center justify-center shrink-0 transition-all hover:bg-[#1E40AF] active:scale-95"
-          >
-            {message.trim() ? (
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-              </svg>
-            )}
-          </button>
-        </div>
+        )}
       </div>
 
       {/* Verification Modal */}

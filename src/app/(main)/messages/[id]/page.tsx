@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getMessages, sendMessage, ChatMessage, ConversationDetail, getConversationDetail } from '@/services/messages';
@@ -54,6 +54,7 @@ export default function ConversationPage() {
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
+  const hasShownSuccessRef = useRef(false);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -130,12 +131,13 @@ export default function ConversationPage() {
       if (msgRes.ok) {
         const data = await msgRes.json();
         if (data.length > 0) {
-          // Detect handover success from either side
-          if (!isHandoverComplete) {
+          // Detect handover success from either side (ref prevents infinite re-trigger)
+          if (!hasShownSuccessRef.current) {
             const hasHandoverSuccess = data.some(
               (msg: ChatMessage) => msg.content?.includes('Handover Verified')
             );
             if (hasHandoverSuccess) {
+              hasShownSuccessRef.current = true;
               setIsHandoverComplete(true);
               setShowSuccessAnimation(true);
             }
@@ -198,6 +200,9 @@ export default function ConversationPage() {
   // isClaimer = !isFinder means current user is NOT the owner (the claimer)
   const isFinder = conversation?.is_finder ?? false;
   const isClaimer = conversation && currentUser ? !isFinder : false;
+
+  // Check if the item has been returned (conversation should be read-only)
+  const isItemReturned = conversation?.item.status === 'Recovered' || conversation?.item.status === 'Returned' || isHandoverComplete;
 
   if (loading && !conversation) {
     return (
@@ -324,25 +329,34 @@ export default function ConversationPage() {
 
       {/* Input Area */}
       <div className="px-4 py-3 border-t border-slate-100 safe-area-bottom bg-white sticky bottom-0 z-20">
-        <div className="flex items-center gap-3 max-w-lg mx-auto w-full">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type a message..."
-            className="flex-1 h-12 pl-4 pr-4 bg-slate-50 rounded-full text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#003898]/10 transition-all border border-slate-100 focus:border-[#003898]"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!message.trim()}
-            className="w-12 h-12 bg-[#003898] rounded-full flex items-center justify-center shrink-0 transition-all hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg className="w-5 h-5 text-white transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+        {isItemReturned ? (
+          <div className="flex items-center justify-center gap-2 py-3 text-sm text-slate-500">
+            <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-          </button>
-        </div>
+            <span>This conversation is closed. The item has been returned.</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 max-w-lg mx-auto w-full">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type a message..."
+              className="flex-1 h-12 pl-4 pr-4 bg-slate-50 rounded-full text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#003898]/10 transition-all border border-slate-100 focus:border-[#003898]"
+            />
+            <button
+              onClick={handleSend}
+              disabled={!message.trim()}
+              className="w-12 h-12 bg-[#003898] rounded-full flex items-center justify-center shrink-0 transition-all hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-5 h-5 text-white transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Verify Identity Modal - STRICT: Only renders when isVerifyModalOpen is true */}
