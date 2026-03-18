@@ -28,6 +28,8 @@ export function ItemCard({ item }: ItemCardProps) {
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const imageUrl = item.image_url ?? item.photo_url ?? null;
   const isRecovered = item.status === 'Recovered';
+  const isCompleted = item.status === 'Completed' || item.status === 'Returned';
+  const isArchived = isRecovered || isCompleted;
   const { Icon: CategoryIcon, bg: catBg, color: catColor } = getCategoryIcon(item.category);
 
   const handleMouseEnter = useCallback(() => {
@@ -54,22 +56,26 @@ export function ItemCard({ item }: ItemCardProps) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={`flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.99] border ${
-        isRecovered
-          ? 'bg-emerald-50/50 border-emerald-200'
-          : 'bg-white border-slate-100 hover:border-slate-200'
+        isCompleted
+          ? 'bg-slate-50/60 border-slate-200'
+          : isRecovered
+            ? 'bg-emerald-50/50 border-emerald-200'
+            : 'bg-white border-slate-100 hover:border-slate-200'
       }`}
     >
       {/* Image: image_url used as-is when full URL (e.g. Cloudinary); helper only prepends backend for relative paths */}
       <div className={`relative w-20 h-20 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${imageUrl ? 'bg-[#F1F5F9]' : catBg}`}>
         {imageUrl ? (
-          <ItemImage
-            src={imageUrl}
-            alt={item.title}
-            className={`w-full h-full object-cover ${isRecovered ? 'opacity-70' : ''}`}
-            loading="lazy"
-          />
+          <div className="w-full h-full" style={isCompleted ? { filter: 'grayscale(60%)' } : undefined}>
+            <ItemImage
+              src={imageUrl}
+              alt={item.title}
+              className={`w-full h-full object-cover ${isArchived ? 'opacity-60' : ''}`}
+              loading="lazy"
+            />
+          </div>
         ) : (
-          <CategoryIcon className={`w-8 h-8 ${catColor}`} strokeWidth={1.5} />
+          <CategoryIcon className={`w-8 h-8 ${catColor} ${isCompleted ? 'opacity-50' : ''}`} strokeWidth={1.5} />
         )}
         {isRecovered && (
           <div className="absolute inset-0 bg-emerald-900/30 flex items-center justify-center rounded-xl">
@@ -78,13 +84,18 @@ export function ItemCard({ item }: ItemCardProps) {
             </svg>
           </div>
         )}
+        {isCompleted && (
+          <div className="absolute top-0 right-0 bg-slate-700/75 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-bl-lg rounded-tr-xl leading-tight tracking-wide">
+            ✅ Handed Over
+          </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <p className="text-xs text-slate-500 mb-0.5">{item.location}</p>
         <div className="flex items-center gap-2 mb-0.5">
-          <h3 className={`text-base font-semibold truncate ${isRecovered ? 'text-emerald-700' : 'text-[#003898]'}`}>
+          <h3 className={`text-base font-semibold truncate ${isCompleted ? 'text-slate-500' : isRecovered ? 'text-emerald-700' : 'text-[#003898]'}`}>
             {item.title}
           </h3>
           {isRecovered && (
@@ -93,6 +104,11 @@ export function ItemCard({ item }: ItemCardProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
               Recovered
+            </span>
+          )}
+          {isCompleted && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-full shrink-0 uppercase tracking-wide">
+              ✅ Handed Over
             </span>
           )}
         </div>

@@ -43,26 +43,30 @@ export function DashboardItemsSection() {
             style={{ scrollSnapType: 'x mandatory' }}
           >
             {todaysItems.length > 0 ? (
-              todaysItems.map((item: ApiItem) => (
+              todaysItems.map((item: ApiItem) => {
+                const isCompleted = item.status === 'Completed' || item.status === 'Returned';
+                return (
                 <Link
                   key={item.id}
                   href={`/items/${item.id}`}
                   prefetch={true}
-                  className="w-full flex-shrink-0 h-64 flex flex-col items-center justify-center"
+                  className="w-full flex-shrink-0 h-64 flex flex-col items-center justify-center relative"
                   style={{ scrollSnapAlign: 'start' }}
                 >
                   {item.image_url ? (
-                    <ItemImage
-                      src={item.image_url}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
+                    <div className="w-full h-full" style={isCompleted ? { filter: 'grayscale(60%)' } : undefined}>
+                      <ItemImage
+                        src={item.image_url}
+                        alt={item.title}
+                        className={`w-full h-full object-cover ${isCompleted ? 'opacity-70' : ''}`}
+                        loading="lazy"
+                      />
+                    </div>
                   ) : (
                     (() => {
                       const { Icon, bg, color } = getCategoryIcon(item.category);
                       return (
-                        <div className={`w-full h-full flex flex-col items-center justify-center gap-3 ${bg}`}>
+                        <div className={`w-full h-full flex flex-col items-center justify-center gap-3 ${bg} ${isCompleted ? 'opacity-60' : ''}`}>
                           <Icon className={`w-16 h-16 ${color}`} strokeWidth={1.2} />
                           <p className="text-sm font-semibold text-slate-500">{item.title}</p>
                           <p className="text-[11px] text-slate-400">{item.location}</p>
@@ -70,8 +74,13 @@ export function DashboardItemsSection() {
                       );
                     })()
                   )}
+                  {isCompleted && (
+                    <div className="absolute top-3 right-3 bg-slate-700/80 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
+                      ✅ Handed Over
+                    </div>
+                  )}
                 </Link>
-              ))
+              );})
             ) : (
               <div className="w-full h-64 flex items-center justify-center text-slate-400">
                 <p>No items reported today</p>
@@ -129,28 +138,39 @@ export function DashboardItemsSection() {
 
         <div className="space-y-3">
           {previousItems.length > 0 ? (
-            previousItems.map((item: ApiItem) => (
+            previousItems.map((item: ApiItem) => {
+              const isCompleted = item.status === 'Completed' || item.status === 'Returned';
+              return (
               <Link
                 key={item.id}
                 href={`/items/${item.id}`}
                 prefetch={true}
-                className="flex items-center gap-4 p-3 bg-[#F8FAFC] rounded-2xl hover:bg-slate-100 transition-colors"
+                className={`flex items-center gap-4 p-3 rounded-2xl transition-colors ${
+                  isCompleted ? 'bg-slate-50/60 hover:bg-slate-100/80' : 'bg-[#F8FAFC] hover:bg-slate-100'
+                }`}
               >
                 {(() => {
                   const { Icon, bg, color } = getCategoryIcon(item.category);
                   return (
                     <div
-                      className={`w-24 h-24 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${item.image_url ? 'bg-[#E8ECF4]' : bg}`}
+                      className={`relative w-24 h-24 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${item.image_url ? 'bg-[#E8ECF4]' : bg}`}
                     >
                       {item.image_url ? (
-                        <ItemImage
-                          src={item.image_url}
-                          alt={item.title}
-                          className="w-full h-full object-cover rounded-xl"
-                          loading="lazy"
-                        />
+                        <div className="w-full h-full" style={isCompleted ? { filter: 'grayscale(60%)' } : undefined}>
+                          <ItemImage
+                            src={item.image_url}
+                            alt={item.title}
+                            className={`w-full h-full object-cover rounded-xl ${isCompleted ? 'opacity-60' : ''}`}
+                            loading="lazy"
+                          />
+                        </div>
                       ) : (
-                        <Icon className={`w-9 h-9 ${color}`} strokeWidth={1.5} />
+                        <Icon className={`w-9 h-9 ${color} ${isCompleted ? 'opacity-50' : ''}`} strokeWidth={1.5} />
+                      )}
+                      {isCompleted && (
+                        <div className="absolute top-0 right-0 bg-slate-700/75 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-bl-lg rounded-tr-xl leading-tight tracking-wide">
+                          ✅ Handed Over
+                        </div>
                       )}
                     </div>
                   );
@@ -158,7 +178,14 @@ export function DashboardItemsSection() {
 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-slate-500">{item.location}</p>
-                  <h3 className="text-lg font-semibold text-[#003898] truncate">{item.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className={`text-lg font-semibold truncate ${isCompleted ? 'text-slate-500' : 'text-[#003898]'}`}>{item.title}</h3>
+                    {isCompleted && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-full shrink-0 uppercase tracking-wide">
+                        ✅ Handed Over
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-slate-400">{item.keywords || item.category}</p>
                 </div>
 
@@ -177,7 +204,7 @@ export function DashboardItemsSection() {
                   </svg>
                 </div>
               </Link>
-            ))
+            );})
           ) : (
             <div className="py-12 text-center">
               <p className="text-sm text-slate-400">No previous items yet</p>
