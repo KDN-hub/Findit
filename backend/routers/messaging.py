@@ -3,6 +3,16 @@ from typing import List
 import mysql.connector
 import random
 from datetime import datetime
+import pusher
+import os
+
+pusher_client = pusher.Pusher(
+  app_id=os.getenv("PUSHER_APP_ID", ""),
+  key=os.getenv("PUSHER_KEY", ""),
+  secret=os.getenv("PUSHER_SECRET", ""),
+  cluster=os.getenv("PUSHER_CLUSTER", "eu"),
+  ssl=True
+)
 
 # Adjust imports based on file structure
 # Since this file is in backend/routers/messaging.py
@@ -24,6 +34,11 @@ from schemas import (
     ClaimResponse,
     MessageResponse
 )
+from pydantic import BaseModel
+
+class PusherAuthRequest(BaseModel):
+    socket_id: str
+    channel_name: str
 
 router = APIRouter()
 
@@ -299,9 +314,39 @@ def send_message(
             VALUES (%s, %s, 'text', %s)
         """
         cursor.execute(insert_query, (request.claim_id, user_id, request.content))
+        message_id = cursor.lastrowid
         db.commit()
         
-        return {"success": True, "message_id": cursor.lastrowid}
+        try:
+            if pusher_client.app_id:
+                pusher_client.trigger(
+                    f"private-claim-{request.claim_id}", 
+                    'new-message', 
+                    {"claim_id": request.claim_id, "content": request.content, "sender_id": user_id, "id": message_id}
+                )
+        except Exception as e:
+            print("Pusher error:", e)
+        
+        return {"success": True, "message_id": message_id}
+
+
+@router.post("/pusher/auth")
+def pusher_auth(req: PusherAuthRequest, current_user: dict = Depends(get_current_user)):
+    """
+    Authenticate Pusher private channel subscription.
+    """
+    try:
+        if not pusher_client.app_id:
+            raise HTTPException(status_code=500, detail="Pusher not configured")
+
+        auth = pusher_client.authenticate(
+            channel=req.channel_name,
+            socket_id=req.socket_id,
+            custom_data={"user_id": current_user["id"]}
+        )
+        return auth
+    except Exception as e:
+        raise HTTPException(status_code=403, detail=str(e))
         
     except mysql.connector.Error as err:
         db.rollback()
@@ -457,7 +502,8 @@ def confirm_handover(
     cursor = db.cursor(dictionary=True)
     try:
         # Permission: Only Claimer
-        cursor.execute("SELECT claimer_id, status, handover_code, item_id FROM claims WHERE id = %s", (request.claim_id,))
+        # Lock the row for update to prevent race conditions
+        cursor.execute("SELECT claimer_id, status, handover_code, item_id FROM claims WHERE id = %s FOR UPDATE", (request.claim_id,))
         claim = cursor.fetchone()
         
         if not claim: 

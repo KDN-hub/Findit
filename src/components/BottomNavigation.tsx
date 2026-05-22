@@ -20,7 +20,7 @@ export function BottomNavigation() {
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
       fetch(`${API_BASE_URL}/users/me`, { headers }).then((r) => (r.ok ? r.json() : null)),
-      fetch(`${API_BASE_URL}/items`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`/api/items`).then((r) => (r.ok ? r.json() : [])),
     ]).then(([user, data]) => {
       if (!user || !Array.isArray(data)) return;
       const today = new Date();

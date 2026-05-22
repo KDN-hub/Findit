@@ -1,43 +1,33 @@
-import mysql.connector
-from mysql.connector import pooling
-import config  # loads .env automatically
+import config
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-db_config = {
-    "host": config.DB_HOST,
-    "user": config.DB_USER,
-    "password": config.DB_PASSWORD,
-    "database": config.DB_NAME,
-    "port": config.DB_PORT,
+DATABASE_URL = (
+    f"mysql+mysqlconnector://{config.DB_USER}:{config.DB_PASSWORD}"
+    f"@{config.DB_HOST}:{config.DB_PORT}/{config.DB_NAME}"
+)
+
+# Aiven requires SSL — uses their CA cert for identity verification
+connect_args = {
+    "ssl_verify_cert": True,
+    "ssl_verify_identity": True,
+    "ssl_ca": config.AIVEN_SSL_CA_PATH  # Path to the ca.pem Aiven gives you
 }
 
-# Create a connection pool: enough lanes for many concurrent slow connections.
-# pool_size=20 gives enough open lanes; mysql.connector has no max_overflow or pool_recycle
-# (use pool_reset_session + ping(reconnect=True) below to avoid stale connections).
-try:
-    connection_pool = pooling.MySQLConnectionPool(
-        pool_name="findit_pool",
-        pool_size=20,
-        pool_reset_session=True,
-        **db_config
-    )
-    print("Database connection pool created successfully")
-except mysql.connector.Error as err:
-    print(f"Error creating connection pool: {err}")
-    connection_pool = None
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=10,
+    max_overflow=20,
+    pool_recycle=1800,
+    pool_pre_ping=True,
+    connect_args=connect_args
+)
 
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db_connection():
-    """
-    Get a connection from the pool. Pre-pings so only alive connections are used;
-    try/finally ensures connection.close() so the pool doesn't exhaust.
-    Use as a FastAPI dependency: db=Depends(get_db_connection).
-    """
-    if not connection_pool:
-        raise Exception("Database connection pool is not initialized")
-    connection = connection_pool.get_connection()
+    connection = engine.raw_connection()
     try:
-        # Ensure connection is alive before use (reconnect if needed) — warm, instant queries
-        connection.ping(reconnect=True)
         yield connection
     finally:
         connection.close()

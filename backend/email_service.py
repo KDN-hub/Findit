@@ -50,18 +50,11 @@ def send_login_alert_email(user_email: str, user_name: str):
 </html>
 """
     try:
-        print("[EMAIL] send_login_alert_email Setting resend.api_key")
-        resend.api_key = RESEND_API_KEY
-        print("[EMAIL] send_login_alert_email Calling Resend API (Emails.send)...")
-        resend.Emails.send({
-            "from": SENDER_EMAIL,
-            "to": [user_email],
-            "subject": subject,
-            "html": html_body,
-        })
-        print(f"[EMAIL] send_login_alert_email SUCCESS: login alert sent to {user_email}")
+        from tasks import send_email_task
+        send_email_task.delay(user_email, subject, html_body)
+        print(f"[EMAIL] send_login_alert_email SUCCESS: Queued email to {user_email}")
     except Exception as e:
-        print(f"[EMAIL ERROR] send_login_alert_email FAILED to {user_email}: {e!r}")
+        print(f"[EMAIL ERROR] send_login_alert_email FAILED to queue to {user_email}: {e!r}")
         traceback.print_exc()
 
 
@@ -96,18 +89,11 @@ def send_reset_code_email(user_email: str, otp: str):
 </html>
 """
     try:
-        print("[EMAIL] send_reset_code_email Setting resend.api_key")
-        resend.api_key = RESEND_API_KEY
-        print("[EMAIL] send_reset_code_email Calling Resend API (Emails.send)...")
-        resend.Emails.send({
-            "from": SENDER_EMAIL,
-            "to": [user_email],
-            "subject": subject,
-            "html": html_body,
-        })
-        print(f"[EMAIL] send_reset_code_email SUCCESS: reset code sent to {user_email}")
+        from tasks import send_email_task
+        send_email_task.delay(user_email, subject, html_body)
+        print(f"[EMAIL] send_reset_code_email SUCCESS: Queued reset code to {user_email}")
     except Exception as e:
-        print(f"[EMAIL ERROR] send_reset_code_email FAILED to {user_email}: {e!r}")
+        print(f"[EMAIL ERROR] send_reset_code_email FAILED to queue to {user_email}: {e!r}")
         traceback.print_exc()
 
 
@@ -139,18 +125,11 @@ def send_welcome_email(user_email: str, user_name: str):
 </html>
 """
     try:
-        print("[EMAIL] send_welcome_email Setting resend.api_key")
-        resend.api_key = RESEND_API_KEY
-        print("[EMAIL] send_welcome_email Calling Resend API (Emails.send)...")
-        resend.Emails.send({
-            "from": SENDER_EMAIL,
-            "to": [user_email],
-            "subject": subject,
-            "html": html_body,
-        })
-        print(f"[EMAIL] send_welcome_email SUCCESS: welcome email sent to {user_email}")
+        from tasks import send_email_task
+        send_email_task.delay(user_email, subject, html_body)
+        print(f"[EMAIL] send_welcome_email SUCCESS: Queued welcome email to {user_email}")
     except Exception as e:
-        print(f"[EMAIL ERROR] send_welcome_email FAILED to {user_email}: {e!r}")
+        print(f"[EMAIL ERROR] send_welcome_email FAILED to queue to {user_email}: {e!r}")
         traceback.print_exc()
 
 
@@ -182,16 +161,9 @@ def send_item_notification(user_email: str, user_name: str, item_title: str, ite
 </html>
 """
     try:
-        print("[EMAIL] send_item_notification Setting resend.api_key")
-        resend.api_key = RESEND_API_KEY
-        print("[EMAIL] send_item_notification Calling Resend API (Emails.send)...")
-        resend.Emails.send({
-            "from": SENDER_EMAIL,
-            "to": [user_email],
-            "subject": subject,
-            "html": html_body,
-        })
-        print(f"[EMAIL] send_item_notification SUCCESS: item notification sent to {user_email} for item #{item_id}")
+        from tasks import send_email_task
+        send_email_task.delay(user_email, subject, html_body)
+        print(f"[EMAIL] send_item_notification SUCCESS: Queued item notification to {user_email} for item #{item_id}")
     except Exception as e:
-        print(f"[EMAIL ERROR] send_item_notification FAILED to {user_email}: {e!r}")
+        print(f"[EMAIL ERROR] send_item_notification FAILED to queue to {user_email}: {e!r}")
         traceback.print_exc()

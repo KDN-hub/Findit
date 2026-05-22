@@ -43,7 +43,7 @@ function processItems(data: ApiItem[]): DashboardItemsData {
 }
 
 function loadItems(): Promise<DashboardItemsData> {
-  return fetch(`${API_BASE_URL}/items`)
+  return fetch('/api/items')
     .then((res) => (res.ok ? res.json() : []))
     .then((data: ApiItem[]) => {
       const result = processItems(data);

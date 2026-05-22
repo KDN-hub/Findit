@@ -9,6 +9,7 @@ import IdentityVerificationCard from "@/components/IdentityVerificationCard";
 import HandoverCodeCard from "@/components/HandoverCodeCard";
 import HandoverCodeEntry from "@/components/HandoverCodeEntry";
 import { useModal } from "@/context/ModalContext";
+import Pusher from "pusher-js";
 
 interface Message {
     id: number;
@@ -75,12 +76,55 @@ export default function ChatPage() {
                 await fetchMessages();
                 setLoading(false);
 
-                // 4. Start Polling
-                intervalRef.current = setInterval(() => {
-                    fetchMessages();
-                    // Also refresh claim status
+                // 4. Setup Pusher WebSocket
+                const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || "86c9f52cfc0929d96d9c", {
+                    cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "eu",
+                    channelAuthorization: {
+                        customHandler: async (params, callback) => {
+                            try {
+                                const authData = await apiFetch("/pusher/auth", {
+                                    method: "POST",
+                                    body: JSON.stringify({
+                                        socket_id: params.socketId,
+                                        channel_name: params.channelName,
+                                    }),
+                                });
+                                callback(null, authData);
+                            } catch (err: any) {
+                                callback(err, { auth: "" });
+                            }
+                        },
+                    },
+                });
+
+                const channel = pusher.subscribe(`private-claim-${claimId}`);
+                channel.bind("new-message", (data: any) => {
+                    // Update messages dynamically without refetching everything
+                    setMessages((prev) => {
+                        if (prev.find((m) => m.id === data.id)) return prev; // Avoid duplicates
+                        const newMsg: Message = {
+                            id: data.id,
+                            sender_id: data.sender_id,
+                            sender_name: "User", // This will be fixed upon next full fetch, or we can leave it generic for chat display
+                            message_type: "text",
+                            content: data.content,
+                            created_at: new Date().toISOString(),
+                        };
+                        return [...prev, newMsg];
+                    });
+                    // Refresh claim status periodically or trigger refetch if needed
                     refreshClaimStatus(foundClaim.claim_id);
-                }, 3000);
+                });
+
+                intervalRef.current = setTimeout(() => {
+                    // We keep a fallback timeout just to clean up later, but we store pusher in a ref if needed.
+                }, 0);
+
+                // Cleanup Pusher on unmount
+                return () => {
+                    pusher.unsubscribe(`private-claim-${claimId}`);
+                    pusher.disconnect();
+                };
 
             } catch (err: any) {
                 console.error("Init Error:", err);
@@ -90,12 +134,13 @@ export default function ChatPage() {
         };
 
         if (claimIdStr) {
-            init();
+            const cleanupPromise = init();
+            return () => {
+                cleanupPromise.then((cleanup) => {
+                    if (cleanup) cleanup();
+                });
+            };
         }
-
-        return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-        };
     }, [claimIdStr]);
 
     // Scroll to bottom when page first loads so the system greeting is the first thing the claimer sees

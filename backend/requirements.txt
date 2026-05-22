@@ -12,3 +12,8 @@ bcrypt
 python-jose[cryptography]
 passlib
 resend
+celery
+redis
+SQLAlchemy
+PyMySQL
+pusher

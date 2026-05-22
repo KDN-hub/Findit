@@ -99,6 +99,23 @@ export default function ReportItemPage() {
       const contactPref = (formData.get('contact_preference') as string) ?? 'in_app';
 
       try {
+        let finalImageUrl = '';
+        if (hasImage && imageFile) {
+          const uploadData = new FormData();
+          uploadData.append('file', imageFile);
+          uploadData.append('upload_preset', 'findit_unsigned_preset');
+          // Add your Cloudinary cloud name here
+          const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'findit';
+          const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+            method: 'POST',
+            body: uploadData,
+          });
+          const cloudJson = await cloudRes.json();
+          if (cloudJson.secure_url) {
+            finalImageUrl = cloudJson.secure_url;
+          }
+        }
+
         const body = new FormData();
         body.append('title', title);
         body.append('description', description);
@@ -108,7 +125,7 @@ export default function ReportItemPage() {
         if (keywords) body.append('keywords', keywords);
         if (dateFound) body.append('date_found', dateFound);
         if (contactPref) body.append('contact_preference', contactPref);
-        if (hasImage && imageFile) body.append('image', imageFile);
+        if (finalImageUrl) body.append('image_url', finalImageUrl);
 
         const res = await fetch(`${API_BASE_URL}/items`, {
           method: 'POST',

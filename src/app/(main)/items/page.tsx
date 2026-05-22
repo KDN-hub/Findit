@@ -46,7 +46,7 @@ export default function ItemsFoundPage() {
       if (selectedCategory !== 'All') params.set('category', selectedCategory);
 
       const queryString = params.toString();
-      const url = `${API_BASE_URL}/items${queryString ? `?${queryString}` : ''}`;
+      const url = `/api/items${queryString ? `?${queryString}` : ''}`;
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Server error: ${res.status}`);

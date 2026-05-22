@@ -32,7 +32,7 @@ import cloudinary
 import cloudinary.uploader
 
 from database import get_db_connection
-from auth_utils import verify_password, get_password_hash, create_access_token, get_current_user
+from auth_utils import verify_password, get_password_hash, create_access_token, get_current_user, set_auth_cookies
 from email_service import send_login_alert_email, send_reset_code_email, send_welcome_email, send_item_notification
 from routers import messaging
 from init_db import ensure_tables
@@ -466,6 +466,7 @@ def login(
     login_data: LoginRequest,
     background_tasks: BackgroundTasks,
     request: Request,
+    response: Response,
     db=Depends(get_db_connection),
 ):
     cursor = db.cursor(dictionary=True)
@@ -511,6 +512,8 @@ def login(
         ip = request.client.host if request.client else None
         log_audit(db, user["id"], "LOGIN", None, "User logged in", ip)
 
+        set_auth_cookies(response, access_token)
+
         return {
             "id": user["id"],
             "email": user["email"],
@@ -528,7 +531,7 @@ def login(
         cursor.close()
 
 @app.post("/auth/google", response_model=UserResponse)
-def google_login(login_data: GoogleLoginRequest, background_tasks: BackgroundTasks, db=Depends(get_db_connection)):
+def google_login(login_data: GoogleLoginRequest, background_tasks: BackgroundTasks, response: Response, db=Depends(get_db_connection)):
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
     
     try:
@@ -571,9 +574,11 @@ def google_login(login_data: GoogleLoginRequest, background_tasks: BackgroundTas
             log_audit(db, user["id"], "REGISTER", None, "User registered via Google")
         else:
             # Update existing user info if needed
-            log_audit(db, user["id"], "LOGIN", None, "User logged in via Google")
-            
+            log_audit(db, user["id"], "LOGIN", None, "User logged in via Google", None)
+
         access_token = create_access_token(data={"sub": user['email'], "id": user['id'], "role": user['role'], "full_name": user.get('full_name')})
+
+        set_auth_cookies(response, access_token)
 
         # Send login alert email in the background
         background_tasks.add_task(send_login_alert_email, user['email'], user.get('full_name', 'User'))
@@ -807,7 +812,7 @@ async def create_item(
     keywords: Optional[str] = Form(None),
     date_found: Optional[str] = Form(None),
     contact_preference: Optional[str] = Form("in_app"),
-    image: Optional[UploadFile] = File(None),
+    image_url: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user),
     db=Depends(get_db_connection),
 ):
@@ -816,19 +821,7 @@ async def create_item(
     try:
         user_id = current_user["id"]
 
-        # Handle image upload: send to Cloudinary folder 'findit_items', store secure_url
-        image_url = None
-        if image and image.filename:
-            content = await image.read()
-            if content:
-                try:
-                    result = cloudinary.uploader.upload(
-                        io.BytesIO(content),
-                        folder="findit_items",
-                    )
-                    image_url = result.get("secure_url")
-                except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
+        # Image already uploaded to Cloudinary on client side; we just save the url
 
         insert_query = """
         INSERT INTO items (title, description, status, category, location, keywords, date_found, contact_preference, image_url, user_id)
@@ -887,6 +880,8 @@ async def create_item(
 
 @app.get("/items", response_model=List[ItemResponse])
 def get_items(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     q: Optional[str] = Query(None),
     item_status: Optional[str] = Query(None, alias="status"),
     category: Optional[str] = Query(None),
@@ -921,7 +916,8 @@ def get_items(
         if conditions:
             base_query += " WHERE " + " AND ".join(conditions)
 
-        base_query += " ORDER BY i.created_at DESC"
+        base_query += " ORDER BY i.created_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, skip])
 
         cursor.execute(base_query, tuple(params))
         items = cursor.fetchall()
@@ -932,6 +928,12 @@ def get_items(
                 item["created_at"] = str(item["created_at"])
             if item.get("date_found"):
                 item["date_found"] = str(item["date_found"])
+            
+            # Optimize Cloudinary URL format
+            if item.get("image_url") and "res.cloudinary.com" in item["image_url"]:
+                parts = item["image_url"].split("/upload/")
+                if len(parts) == 2:
+                    item["image_url"] = f"{parts[0]}/upload/w_500,q_auto,f_auto/{parts[1]}"
 
         return items
 
@@ -2230,7 +2232,7 @@ class AdminAuthRequest(BaseModel):
     passcode: str
 
 @app.post("/admin/auth")
-def admin_auth(req: AdminAuthRequest, db=Depends(get_db_connection)):
+def admin_auth(req: AdminAuthRequest, response: Response, db=Depends(get_db_connection)):
     """Authenticates an admin purely using the system passcode, bypassing normal user registration."""
     if req.passcode != "admin_12345":
         raise HTTPException(status_code=401, detail="Invalid admin passcode")
@@ -2266,6 +2268,7 @@ def admin_auth(req: AdminAuthRequest, db=Depends(get_db_connection)):
         access_token = create_access_token(
             data={"sub": admin_user["email"], "id": admin_user["id"], "role": admin_user["role"], "full_name": "System Admin", "is_admin": True}
         )
+        set_auth_cookies(response, access_token)
         return {"access_token": access_token, "token_type": "bearer", "id": admin_user["id"]}
     finally:
         cursor.close()
