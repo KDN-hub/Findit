@@ -23,30 +23,37 @@ MAIL_USERNAME = config.MAIL_USERNAME or SENDER_EMAIL
 
 def send_email_smtp(recipient_email: str, subject: str, html_body: str):
     """
-    Core function to send an email via SMTP.
+    Core function to send an email via Brevo HTTP API.
     Runs inside FastAPI BackgroundTasks.
     """
-    if not SENDER_PASSWORD:
-        print("[EMAIL] ERROR: SENDER_PASSWORD not set. Cannot send email.")
+    # Use MAIL_PASSWORD as the Brevo API Key
+    api_key = config.MAIL_PASSWORD
+    if not api_key:
+        print("[EMAIL] ERROR: MAIL_PASSWORD (Brevo API Key) not set. Cannot send email.")
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = SENDER_EMAIL
-    msg["To"] = recipient_email
-    msg.attach(MIMEText(html_body, "html"))
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+    payload = {
+        "sender": {"email": SENDER_EMAIL, "name": "FindIt"},
+        "to": [{"email": recipient_email}],
+        "subject": subject,
+        "htmlContent": html_body
+    }
 
     try:
-        # Use port 587 (STARTTLS) instead of 465 (SSL) to bypass cloud port blocking
-        with smtplib.SMTP(SMTP_SERVER, 587, timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            login_username = MAIL_USERNAME if MAIL_USERNAME else SENDER_EMAIL
-            server.login(login_username, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, recipient_email, msg.as_string())
-        print(f"[EMAIL] SUCCESS: Email sent to {recipient_email}")
+        import requests
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        response.raise_for_status()
+        print(f"[EMAIL] SUCCESS: Email sent to {recipient_email} via Brevo API")
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send email to {recipient_email}: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"[EMAIL ERROR DETAILS] {e.response.text}")
         traceback.print_exc()
 
 def send_login_alert_email(user_email: str, user_name: str):
