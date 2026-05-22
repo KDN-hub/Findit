@@ -1,9 +1,18 @@
 import os
 import traceback
 import smtplib
+import socket
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import config
+
+# Fix for Render: Force IPv4 because Render free tier doesn't support IPv6
+# which causes "Network is unreachable" when smtplib tries to connect to Gmail's IPv6 address.
+old_getaddrinfo = socket.getaddrinfo
+def new_getaddrinfo(*args, **kwargs):
+    responses = old_getaddrinfo(*args, **kwargs)
+    return [res for res in responses if res[0] == socket.AF_INET]
+socket.getaddrinfo = new_getaddrinfo
 
 # Use centralized config values
 SMTP_SERVER = config.EMAIL_SERVER
