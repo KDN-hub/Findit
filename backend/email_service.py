@@ -37,7 +37,10 @@ def send_email_smtp(recipient_email: str, subject: str, html_body: str):
     msg.attach(MIMEText(html_body, "html"))
 
     try:
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
+        # Use port 587 (STARTTLS) instead of 465 (SSL) to bypass cloud port blocking
+        with smtplib.SMTP(SMTP_SERVER, 587, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
             login_username = MAIL_USERNAME if MAIL_USERNAME else SENDER_EMAIL
             server.login(login_username, SENDER_PASSWORD)
             server.sendmail(SENDER_EMAIL, recipient_email, msg.as_string())
