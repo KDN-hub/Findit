@@ -26,8 +26,10 @@ TABLES = [
             password_hash VARCHAR(255),
             full_name VARCHAR(255),
             avatar_url VARCHAR(255),
-            role ENUM('student', 'admin') DEFAULT 'student',
+            role ENUM('student', 'staff', 'visitor', 'admin') DEFAULT 'student',
             auth_provider ENUM('google', 'email') DEFAULT 'email',
+            matric_number VARCHAR(20) DEFAULT NULL,
+            is_admin BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
