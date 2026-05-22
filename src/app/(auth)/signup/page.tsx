@@ -24,6 +24,7 @@ function SignUpForm() {
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [generalError, setGeneralError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
   async function handleSubmit(formData: FormData) {
     setErrors({});
@@ -67,9 +68,11 @@ function SignUpForm() {
           return;
         }
 
+        setSubmittedEmail(email);
         setShowSuccess(true);
         setTimeout(() => {
-          router.push(redirectTo !== '/dashboard' ? `/login?registered=true&redirect=${encodeURIComponent(redirectTo)}` : '/login?registered=true');
+          const redirectParam = redirectTo !== '/dashboard' ? `&redirect=${encodeURIComponent(redirectTo)}` : '';
+          router.push(`/verify-otp?email=${encodeURIComponent(email)}${redirectParam}`);
         }, 2000);
       } catch (error: any) {
         console.log('Signup Error:', error);
@@ -248,13 +251,16 @@ function SignUpForm() {
             </div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">Signup Successful!</h3>
             <p className="text-sm text-slate-500 mb-6">
-              Your account has been created. Redirecting to login...
+              Your account has been created. Redirecting to verification...
             </p>
             <button
-              onClick={() => router.push(redirectTo !== '/dashboard' ? `/login?registered=true&redirect=${encodeURIComponent(redirectTo)}` : '/login?registered=true')}
+              onClick={() => {
+                const redirectParam = redirectTo !== '/dashboard' ? `&redirect=${encodeURIComponent(redirectTo)}` : '';
+                router.push(`/verify-otp?email=${encodeURIComponent(submittedEmail)}${redirectParam}`);
+              }}
               className="w-full h-12 bg-[#003898] hover:bg-[#002266] text-white font-semibold rounded-xl transition-colors"
             >
-              Go to Login Now
+              Verify Now
             </button>
           </div>
         </div>

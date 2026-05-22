@@ -2,7 +2,7 @@
 Migration script to add handover codes to conversations table.
 Run this script to update your database schema.
 """
-import mysql.connector
+import pymysql
 import os
 from dotenv import load_dotenv
 
@@ -11,7 +11,7 @@ load_dotenv()
 def migrate():
     try:
         # Connect to database
-        db = mysql.connector.connect(
+        db = pymysql.connect(
             host=os.getenv("DB_HOST", "localhost"),
             user=os.getenv("DB_USER", "root"),
             password=os.getenv("DB_PASSWORD", ""),
@@ -44,7 +44,7 @@ def migrate():
         db.commit()
         print("Migration completed successfully!")
         
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"Migration error: {err}")
         db.rollback()
     finally:

@@ -1,4 +1,4 @@
-import mysql.connector
+import pymysql
 import os
 from dotenv import load_dotenv
 
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS conversations (
 
 def main():
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = pymysql.connect(**db_config)
         cursor = conn.cursor()
         print("Connected to database.")
         cursor.execute(SQL)
@@ -36,7 +36,7 @@ def main():
         conn.commit()
         cursor.close()
         conn.close()
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"Error: {err}")
 
 if __name__ == "__main__":

@@ -46,6 +46,9 @@ TABLES = [
             auth_provider ENUM('google', 'email') DEFAULT 'email',
             matric_number VARCHAR(20) DEFAULT NULL,
             is_admin BOOLEAN DEFAULT FALSE,
+            is_verified BOOLEAN DEFAULT FALSE,
+            verification_code VARCHAR(10) DEFAULT NULL,
+            verification_expires DATETIME DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
@@ -118,6 +121,8 @@ TABLES = [
             claimer_code VARCHAR(10) DEFAULT NULL,
             finder_code_created_at DATETIME DEFAULT NULL,
             claimer_code_created_at DATETIME DEFAULT NULL,
+            finder_verified BOOLEAN DEFAULT FALSE,
+            claimer_verified BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
             FOREIGN KEY (finder_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -139,6 +144,21 @@ TABLES = [
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
             FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE SET NULL
+        )
+        """,
+    ),
+    (
+        "webauthn_credentials",
+        """
+        CREATE TABLE IF NOT EXISTS webauthn_credentials (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            credential_id VARCHAR(512) NOT NULL UNIQUE,
+            public_key TEXT NOT NULL,
+            sign_count INT DEFAULT 0,
+            transports VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
         """,
     ),

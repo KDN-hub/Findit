@@ -336,8 +336,8 @@ export default function FinderConversationPage() {
           isFinder={true}
           onClose={() => setShowHandoverModal(false)}
           onSuccess={(data) => {
-            setShowHandoverModal(false);
             if (data?.handover_status === 'success') {
+              setShowHandoverModal(false);
               setIsHandedOver(true);
               setShowSuccessAnimation(true);
               setMessages((prev) => [

@@ -43,6 +43,10 @@ AIVEN_SSL_CA_PATH = os.getenv("AIVEN_SSL_CA_PATH", "backend/certs/ca.pem")
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey123")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
+# WebAuthn
+RP_ID = os.getenv("RP_ID", "localhost")
+RP_ORIGIN = os.getenv("RP_ORIGIN", "http://localhost:3000")
+
 # Email (MAIL_* naming — used by email_service, utils, main)
 MAIL_FROM = os.getenv("MAIL_FROM")
 MAIL_USERNAME = os.getenv("MAIL_USERNAME")

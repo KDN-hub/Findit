@@ -33,7 +33,7 @@ import cloudinary.uploader
 
 from database import get_db_connection
 from auth_utils import verify_password, get_password_hash, create_access_token, get_current_user, set_auth_cookies
-from email_service import send_login_alert_email, send_reset_code_email, send_welcome_email, send_item_notification
+from email_service import send_login_alert_email, send_reset_code_email, send_welcome_email, send_item_notification, send_registration_otp_email
 from routers import messaging
 from init_db import ensure_tables
 
@@ -505,6 +505,11 @@ def login(
 
         if user.get("is_suspended") in (1, True):
             raise HTTPException(status_code=403, detail="Your account has been suspended. Contact an administrator.")
+            
+        if not user.get("is_verified"):
+            # If not verified and trying to login via email/password, block them
+            if user.get("auth_provider") == "email":
+                raise HTTPException(status_code=403, detail="Please verify your email address before logging in.")
 
         is_admin = user.get("is_admin") in (1, True) or (user.get("role") or "").lower() == "admin"
         background_tasks.add_task(send_login_alert_email, user["email"], user.get("full_name", "User"))
@@ -566,10 +571,10 @@ def google_login(login_data: GoogleLoginRequest, background_tasks: BackgroundTas
             if not email.lower().endswith("@student.babcock.edu.ng"):
                 raise HTTPException(status_code=403, detail="Student accounts must use a @student.babcock.edu.ng email address.")
 
-            # Create new user
+            # Create new user, automatically verifying them since Google verifies email
             insert_query = """
-            INSERT INTO users (email, full_name, avatar_url, role, auth_provider) 
-            VALUES (%s, %s, %s, 'student', 'google')
+            INSERT INTO users (email, full_name, avatar_url, role, auth_provider, is_verified) 
+            VALUES (%s, %s, %s, 'student', 'google', 1)
             """
             cursor.execute(insert_query, (email, full_name, avatar_url))
             db.commit()
@@ -581,7 +586,10 @@ def google_login(login_data: GoogleLoginRequest, background_tasks: BackgroundTas
             # Log registration
             log_audit(db, user["id"], "REGISTER", None, "User registered via Google")
         else:
-            # Update existing user info if needed
+            # Update existing user info if needed, and ensure they are marked verified
+            cursor.execute("UPDATE users SET is_verified = 1 WHERE id = %s", (user["id"],))
+            db.commit()
+            user["is_verified"] = 1
             log_audit(db, user["id"], "LOGIN", None, "User logged in via Google", None)
 
         access_token = create_access_token(data={"sub": user['email'], "id": user['id'], "role": user['role'], "full_name": user.get('full_name')})
@@ -653,17 +661,22 @@ def _register_user(user_data: RegisterRequest, db):
             raise HTTPException(status_code=400, detail="Email already registered")
 
         hashed_password = get_password_hash(user_data.password)
+        
+        # Generate OTP
+        otp = f"{random.randint(0, 9999):04d}"
+        expires = datetime.utcnow() + timedelta(minutes=15)
+        
         insert_query = """
-        INSERT INTO users (email, password_hash, full_name, auth_provider, role, matric_number, is_admin)
-        VALUES (%s, %s, %s, 'email', %s, %s, 0)
+        INSERT INTO users (email, password_hash, full_name, auth_provider, role, matric_number, is_admin, is_verified, verification_code, verification_expires)
+        VALUES (%s, %s, %s, 'email', %s, %s, 0, 0, %s, %s)
         """
-        cursor.execute(insert_query, (user_data.email, hashed_password, user_data.full_name, role, matric_number))
+        cursor.execute(insert_query, (user_data.email, hashed_password, user_data.full_name, role, matric_number, otp, expires))
         db.commit()
         new_user_id = cursor.lastrowid
         
-        log_audit(db, new_user_id, "REGISTER", None, "User registered via Email")
+        log_audit(db, new_user_id, "REGISTER", None, "User registered via Email (Unverified)")
 
-        return {"message": "User registered successfully"}
+        return {"message": "User registered successfully", "otp": otp}
     except HTTPException:
         raise
     except pymysql.Error as err:
@@ -679,7 +692,9 @@ def register(
     db=Depends(get_db_connection),
 ):
     result = _register_user(user_data, db)
-    background_tasks.add_task(send_welcome_email, user_data.email, user_data.full_name)
+    otp = result.pop("otp", None)
+    if otp:
+        background_tasks.add_task(send_registration_otp_email, user_data.email, otp)
     return result
 
 @app.post("/auth/signup")
@@ -690,8 +705,79 @@ def signup(
 ):
     """Alias for /auth/register."""
     result = _register_user(user_data, db)
-    background_tasks.add_task(send_welcome_email, user_data.email, user_data.full_name)
+    otp = result.pop("otp", None)
+    if otp:
+        background_tasks.add_task(send_registration_otp_email, user_data.email, otp)
     return result
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+@app.post("/auth/resend-verification")
+def resend_verification(
+    data: ResendVerificationRequest,
+    background_tasks: BackgroundTasks,
+    db=Depends(get_db_connection),
+):
+    cursor = db.cursor(pymysql.cursors.DictCursor)
+    try:
+        cursor.execute("SELECT id, is_verified FROM users WHERE email = %s", (data.email,))
+        user = cursor.fetchone()
+        
+        if not user:
+            return {"message": "If an account exists, a new verification code has been sent."}
+            
+        if user["is_verified"]:
+            return {"message": "Account is already verified."}
+            
+        otp = f"{random.randint(0, 9999):04d}"
+        expires = datetime.utcnow() + timedelta(minutes=15)
+        
+        cursor.execute("UPDATE users SET verification_code = %s, verification_expires = %s WHERE id = %s", (otp, expires, user["id"]))
+        db.commit()
+        
+        background_tasks.add_task(send_registration_otp_email, data.email, otp)
+        return {"message": "If an account exists, a new verification code has been sent."}
+    finally:
+        cursor.close()
+
+class VerifyRegistrationRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+@app.post("/auth/verify-registration")
+def verify_registration(
+    data: VerifyRegistrationRequest,
+    background_tasks: BackgroundTasks,
+    db=Depends(get_db_connection),
+):
+    cursor = db.cursor(pymysql.cursors.DictCursor)
+    try:
+        cursor.execute(
+            "SELECT id, is_verified, verification_code, verification_expires, full_name FROM users WHERE email = %s",
+            (data.email,)
+        )
+        user = cursor.fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        if user["is_verified"]:
+            return {"message": "Account is already verified"}
+            
+        if not user["verification_code"] or user["verification_code"] != data.otp:
+            raise HTTPException(status_code=400, detail="Invalid verification code")
+            
+        if not user["verification_expires"] or datetime.utcnow() > user["verification_expires"]:
+            raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new one.")
+            
+        cursor.execute("UPDATE users SET is_verified = 1, verification_code = NULL, verification_expires = NULL WHERE id = %s", (user["id"],))
+        db.commit()
+        
+        log_audit(db, user["id"], "VERIFY", None, "User verified email")
+        background_tasks.add_task(send_welcome_email, data.email, user["full_name"])
+        return {"message": "Account verified successfully. You can now login."}
+    finally:
+        cursor.close()
 
 
 # ──────────────────────────────────────────────────────────
@@ -1688,7 +1774,8 @@ def start_handover(
         cursor.execute(
             """UPDATE conversations SET
                finder_code = %s, claimer_code = %s,
-               finder_code_created_at = %s, claimer_code_created_at = %s
+               finder_code_created_at = %s, claimer_code_created_at = %s,
+               finder_verified = FALSE, claimer_verified = FALSE
                WHERE id = %s""",
             (finder_code, claimer_code, now_utc_naive, now_utc_naive, conversation_id),
         )
@@ -1726,6 +1813,7 @@ def verify_handover(
         cursor.execute("""
             SELECT c.finder_id, c.claimer_id, c.finder_code, c.claimer_code,
                    c.finder_code_created_at, c.claimer_code_created_at, c.item_id,
+                   c.finder_verified, c.claimer_verified,
                    uf.full_name AS finder_name, uc.full_name AS claimer_name
             FROM conversations c
             JOIN users uf ON c.finder_id = uf.id
@@ -1742,16 +1830,23 @@ def verify_handover(
 
         # 2. Who is submitting: Claimer enters Finder's code; Finder enters Claimer's code
         is_finder = current_user_id == convo['finder_id']
+        
         if is_finder:
+            if convo['finder_verified']:
+                raise HTTPException(status_code=400, detail="You have already verified the handover.")
             expected_code = convo['claimer_code']
             code_created_at = convo['claimer_code_created_at']
             other_person_name = convo['claimer_name']
+            current_person_name = convo['finder_name']
             receiver_id = convo['claimer_id']
         else:
+            if convo['claimer_verified']:
+                raise HTTPException(status_code=400, detail="You have already verified the handover.")
             # Claimer submitting: compare to finder_code (the code the Finder showed them)
             expected_code = convo['finder_code']
             code_created_at = convo['finder_code_created_at']
             other_person_name = convo['finder_name']
+            current_person_name = convo['claimer_name']
             receiver_id = convo['finder_id']
         item_id = convo['item_id']
 
@@ -1773,32 +1868,59 @@ def verify_handover(
         if input_code != expected_code:
             raise HTTPException(status_code=400, detail="Invalid code. Please check and try again.")
 
-        # 5. Clear finder_code and finder_code_created_at (and claimer codes) after successful verify
-        cursor.execute("""
-            UPDATE conversations SET
-            finder_code = NULL, finder_code_created_at = NULL,
-            claimer_code = NULL, claimer_code_created_at = NULL
-            WHERE id = %s
-        """, (conversation_id,))
+        # Update verification flag for the current user
+        if is_finder:
+            cursor.execute("UPDATE conversations SET finder_verified = TRUE WHERE id = %s", (conversation_id,))
+            finder_verified = True
+            claimer_verified = convo['claimer_verified']
+        else:
+            cursor.execute("UPDATE conversations SET claimer_verified = TRUE WHERE id = %s", (conversation_id,))
+            claimer_verified = True
+            finder_verified = convo['finder_verified']
 
-        # 6. Post success message to chat
-        message_content = f"✅ Handover Verified! {other_person_name or 'Other party'} has confirmed the code."
-        cursor.execute("""
-            INSERT INTO messages (sender_id, receiver_id, item_id, content)
-            VALUES (%s, %s, %s, %s)
-        """, (current_user_id, receiver_id, item_id, message_content))
-
-        # 7. Update item status to Returned (handover complete); fallback to Recovered if enum not migrated yet
-        try:
-            cursor.execute("UPDATE items SET status = 'Returned' WHERE id = %s", (item_id,))
-        except pymysql.Error:
-            cursor.execute("UPDATE items SET status = 'Recovered' WHERE id = %s", (item_id,))
         db.commit()
-        return {
-            "status": "success",
-            "message": "Handover verified successfully",
-            "handover_status": "success",
-        }
+
+        # Check if both have verified
+        if finder_verified and claimer_verified:
+            # Both verified -> complete the handover
+            cursor.execute("""
+                UPDATE conversations SET
+                finder_code = NULL, finder_code_created_at = NULL,
+                claimer_code = NULL, claimer_code_created_at = NULL
+                WHERE id = %s
+            """, (conversation_id,))
+
+            message_content = f"✅ Handover Complete! Both {current_person_name or 'the other party'} and {other_person_name or 'the other party'} have verified the code."
+            cursor.execute("""
+                INSERT INTO messages (sender_id, receiver_id, item_id, content)
+                VALUES (%s, %s, %s, %s)
+            """, (current_user_id, receiver_id, item_id, message_content))
+
+            try:
+                cursor.execute("UPDATE items SET status = 'Returned' WHERE id = %s", (item_id,))
+            except pymysql.Error:
+                cursor.execute("UPDATE items SET status = 'Recovered' WHERE id = %s", (item_id,))
+            db.commit()
+
+            return {
+                "status": "success",
+                "message": "Handover verified successfully by both parties.",
+                "handover_status": "success",
+            }
+        else:
+            # Only one verified -> pending other
+            message_content = f"✅ {current_person_name or 'User'} has verified the handover code. Waiting for {other_person_name or 'the other party'} to verify..."
+            cursor.execute("""
+                INSERT INTO messages (sender_id, receiver_id, item_id, content)
+                VALUES (%s, %s, %s, %s)
+            """, (current_user_id, receiver_id, item_id, message_content))
+            db.commit()
+
+            return {
+                "status": "success",
+                "message": f"Verified successfully! Waiting for {other_person_name or 'the other party'}...",
+                "handover_status": "pending_other",
+            }
 
     except HTTPException:
         raise

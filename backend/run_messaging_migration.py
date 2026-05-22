@@ -1,4 +1,4 @@
-import mysql.connector
+import pymysql
 import os
 from dotenv import load_dotenv
 
@@ -15,7 +15,7 @@ db_config = {
 def main():
     print("Connecting to MySQL...")
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = pymysql.connect(**db_config)
         cursor = conn.cursor()
         print(f"Connected to database '{db_config['database']}' successfully!")
 
@@ -28,7 +28,7 @@ def main():
                 try:
                     cursor.execute(statement)
                     print(f"Executed: {statement[:50]}...")
-                except mysql.connector.Error as err:
+                except pymysql.Error as err:
                     print(f"Error executing statement: {err}")
                     # Continue even if error (e.g., column already exists)
                     pass
@@ -38,7 +38,7 @@ def main():
 
         cursor.close()
         conn.close()
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"\nError: {err}")
         raise SystemExit(1)
 

@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense, useState, useTransition } from 'react';
+import { Suspense, useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
 import { setSessionCookieAction } from '@/actions/auth';
+import { startAuthentication } from '@simplewebauthn/browser';
 
 const SAFE_REDIRECT_PATHS = ['/dashboard', '/profile', '/items', '/report', '/messages', '/settings'];
 
@@ -23,6 +24,93 @@ function LoginForm() {
   const [role, setRole] = useState('student');
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [generalError, setGeneralError] = useState('');
+  const [emailInput, setEmailInput] = useState('');
+
+  // Quick Login State
+  const [view, setView] = useState<'normal' | 'quick'>('normal');
+  const [lastUser, setLastUser] = useState<{name: string, email: string, avatar: string | null} | null>(null);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('last_user');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        setLastUser(user);
+        setEmailInput(user.email);
+        setView('quick');
+      } catch (e) {
+        // ignore JSON parse errors
+      }
+    }
+  }, []);
+
+  function saveLastUser(data: any) {
+    const userToSave = {
+      name: data.full_name || data.email.split('@')[0],
+      email: data.email,
+      avatar: data.avatar_url || null
+    };
+    localStorage.setItem('last_user', JSON.stringify(userToSave));
+    setLastUser(userToSave);
+  }
+
+  async function handleBiometricLogin() {
+    setGeneralError('');
+    if (!emailInput) {
+      setGeneralError('Please enter your email address first to login with biometrics.');
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const optRes = await fetch(`${API_BASE_URL}/auth/webauthn/authenticate/generate-options`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailInput })
+        });
+        
+        if (!optRes.ok) {
+          const err = await optRes.json();
+          setGeneralError(err.detail || 'Could not start biometric login.');
+          return;
+        }
+        const options = await optRes.json();
+
+        let attResp;
+        try {
+          attResp = await startAuthentication(options);
+        } catch (err: any) {
+          if (err.name === 'NotAllowedError') {
+             // User cancelled
+             return;
+          }
+          throw err;
+        }
+
+        const verifyRes = await fetch(`${API_BASE_URL}/auth/webauthn/authenticate/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailInput, response: attResp })
+        });
+        
+        if (!verifyRes.ok) {
+          const err = await verifyRes.json();
+          setGeneralError(err.detail || 'Biometric login failed.');
+          return;
+        }
+
+        const data = await verifyRes.json();
+        await setSessionCookieAction(data.id);
+        localStorage.setItem('access_token', data.access_token);
+        saveLastUser(data);
+        router.push(redirectTo);
+        router.refresh();
+      } catch (err: any) {
+        console.error(err);
+        setGeneralError('An error occurred during biometric login.');
+      }
+    });
+  }
 
   async function handleSubmit(formData: FormData) {
     setErrors({});
@@ -32,12 +120,6 @@ function LoginForm() {
       try {
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
-
-        // Since we don't know the role before login on the frontend, we can't strictly enforce 
-        // @babcock.edu.ng *only* for students/staff without blocking visitors.
-        // The backend will handle role-based auth, or we can just let the backend reject invalid logins.
-        // However, to follow the prompt closely, if the email doesn't end in @babcock.edu.ng, 
-        // they might be a visitor, so we proceed and let the backend decide.
 
         const response = await fetch(`${API_BASE_URL}/auth/login`, {
           method: 'POST',
@@ -49,6 +131,13 @@ function LoginForm() {
           const errorData = await response.json();
           console.log('Login Error:', errorData);
           const message = errorData.detail || 'Invalid email or password';
+          
+          if (message === "Please verify your email address before logging in.") {
+            const redirectParam = redirectTo !== '/dashboard' ? `&redirect=${encodeURIComponent(redirectTo)}` : '';
+            router.push(`/verify-otp?email=${encodeURIComponent(email)}${redirectParam}`);
+            return;
+          }
+          
           setGeneralError(message);
           return;
         }
@@ -56,6 +145,7 @@ function LoginForm() {
         const data = await response.json();
         await setSessionCookieAction(data.id);
         localStorage.setItem('access_token', data.access_token);
+        saveLastUser(data);
         router.push(redirectTo);
         router.refresh();
       } catch (error: any) {
@@ -63,6 +153,96 @@ function LoginForm() {
         setGeneralError(error.message || 'Could not connect to the server. Please try again.');
       }
     });
+  }
+
+  // Quick Login View rendering
+  if (view === 'quick' && lastUser) {
+    return (
+      <div className="min-h-dvh bg-white flex flex-col px-6 pt-16 pb-8 safe-area-top safe-area-bottom items-center">
+        
+        {/* App Logo */}
+        <div className="mb-10 text-center">
+          <h1 className="text-[32px] font-bold tracking-tight text-[#003898]">FindIt</h1>
+        </div>
+
+        {/* User Info */}
+        <div className="flex flex-col items-center mb-16">
+          <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden mb-4 border-2 border-white shadow-sm">
+            {lastUser.avatar ? (
+              <img src={lastUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <svg className="w-10 h-10 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            )}
+          </div>
+          <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">
+            {lastUser.name}
+          </h2>
+        </div>
+
+        {/* Fingerprint Icon area */}
+        <div className="flex flex-col items-center flex-1">
+          <button 
+            type="button" 
+            onClick={handleBiometricLogin}
+            disabled={isPending}
+            className="w-24 h-24 rounded-full bg-[#F1F5F9] text-[#003898] flex items-center justify-center mb-6 hover:bg-[#E2E8F0] transition-colors disabled:opacity-50"
+          >
+            {isPending ? (
+               <svg className="animate-spin h-10 w-10" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+               </svg>
+            ) : (
+               <svg className="w-14 h-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                 <path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" />
+               </svg>
+            )}
+          </button>
+          
+          <p className="text-[#003898] font-medium mb-4">Click to log in with Fingerprint</p>
+
+          {generalError && (
+            <p className="text-sm text-red-600 mb-4 text-center px-4">{generalError}</p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleBiometricLogin}
+            disabled={isPending}
+            className="px-8 h-12 bg-[#003898] hover:bg-[#002266] text-white font-semibold rounded-full transition-all duration-200 disabled:opacity-50 flex items-center justify-center"
+          >
+            Verify Fingerprint
+          </button>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="w-full flex justify-center items-center space-x-4 pt-6 mt-auto">
+          <button 
+            type="button" 
+            onClick={() => {
+              localStorage.removeItem('last_user');
+              setLastUser(null);
+              setEmailInput('');
+              setView('normal');
+            }}
+            className="text-sm font-medium text-[#003898] hover:underline"
+          >
+            Switch Account
+          </button>
+          <span className="text-slate-300">|</span>
+          <button 
+            type="button" 
+            onClick={() => setView('normal')}
+            className="text-sm font-medium text-[#003898] hover:underline"
+          >
+            Login with Password
+          </button>
+        </div>
+
+      </div>
+    );
   }
 
   return (
@@ -108,6 +288,8 @@ function LoginForm() {
             <input
               name="email"
               type="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
               placeholder={role === 'visitor' ? "yourname@email.com" : role === 'student' ? "yourname@student.babcock.edu.ng" : "yourname@babcock.edu.ng"}
               className="w-full h-14 px-4 bg-[#F1F5F9] rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#003898] transition-all"
               required
@@ -203,4 +385,3 @@ export default function LoginPage() {
     </Suspense>
   );
 }
-

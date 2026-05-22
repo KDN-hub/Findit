@@ -7,6 +7,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { API_BASE_URL } from '@/lib/config';
 import { signOutAction } from '@/actions/auth';
 import { useModal } from '@/context/ModalContext';
+import { startRegistration } from '@simplewebauthn/browser';
 
 type ThemeOption = 'light' | 'dark';
 
@@ -30,6 +31,8 @@ export default function SettingsPage() {
 
   const isDark = resolvedTheme === 'dark';
 
+  const [isRegisteringBiometric, setIsRegisteringBiometric] = useState(false);
+
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (!token) return;
@@ -38,6 +41,52 @@ export default function SettingsPage() {
       .then((data) => data && setIsAdmin(!!data.is_admin))
       .catch(() => { });
   }, []);
+
+  async function handleRegisterBiometric() {
+    setIsRegisteringBiometric(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) throw new Error('Not authenticated');
+
+      // 1. Get options from server
+      const optRes = await fetch(`${API_BASE_URL}/auth/webauthn/register/generate-options`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!optRes.ok) throw new Error('Failed to get registration options');
+      const options = await optRes.json();
+
+      // 2. Pass options to authenticator
+      let attResp;
+      try {
+        attResp = await startRegistration(options);
+      } catch (err: any) {
+        if (err.name === 'NotAllowedError') {
+          showAlert({ title: 'Registration Cancelled', message: 'You cancelled the biometric registration.' });
+          return;
+        }
+        throw err;
+      }
+
+      // 3. Send response back to server
+      const verifyRes = await fetch(`${API_BASE_URL}/auth/webauthn/register/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ response: attResp })
+      });
+      if (!verifyRes.ok) throw new Error('Failed to verify biometric registration');
+      
+      showAlert({ title: 'Success', message: 'Biometric login enabled successfully!', type: 'success' });
+    } catch (err: any) {
+      console.error(err);
+      showAlert({ title: 'Error', message: err.message || 'Could not enable biometric login.', type: 'danger' });
+    } finally {
+      setIsRegisteringBiometric(false);
+    }
+  }
 
   return (
     <div className={`min-h-dvh pb-8 ${isDark ? 'bg-[#0f172a]' : 'bg-[#F8FAFC]'}`}>
@@ -128,6 +177,22 @@ export default function SettingsPage() {
               description="Get notified for new messages"
               enabled={notifications.messages}
               onToggle={() => setNotifications(prev => ({ ...prev, messages: !prev.messages }))}
+              isDark={isDark}
+            />
+          </div>
+        </section>
+
+        {/* App Lock & Security Settings */}
+        <section>
+          <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 px-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            App Lock & Security
+          </h2>
+          <div className={`rounded-2xl overflow-hidden divide-y ${isDark ? 'bg-[#1e293b] divide-slate-700' : 'bg-white divide-slate-100'}`}>
+            <SettingLink
+              label="Enable Fingerprint / FaceID"
+              description="Use biometrics to login faster"
+              href="#"
+              onClick={handleRegisterBiometric}
               isDark={isDark}
             />
           </div>

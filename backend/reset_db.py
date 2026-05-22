@@ -4,7 +4,7 @@ WARNING: This will DELETE all existing data in both tables.
 Usage: python reset_db.py
 """
 
-import mysql.connector
+import pymysql
 import os
 from dotenv import load_dotenv
 
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS claims (
 def main():
     print("Connecting to MySQL...")
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = pymysql.connect(**db_config)
         cursor = conn.cursor()
         print(f"Connected to database '{db_config['database']}' successfully!")
 
@@ -154,7 +154,7 @@ def main():
         cursor.close()
         conn.close()
         print("\nDone! Database has been reset.")
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"\nError: {err}")
         print("\nTroubleshooting:")
         print("  1. Make sure XAMPP MySQL is running")

@@ -1,4 +1,4 @@
-import mysql.connector
+import pymysql
 import os
 from dotenv import load_dotenv
 
@@ -14,27 +14,27 @@ db_config = {
 
 def main():
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = pymysql.connect(**db_config)
         cursor = conn.cursor()
         
         print("Checking tables:")
-        cursor.execute("SHOW TABLES")
-        for (table,) in cursor.fetchall():
-            print(f"- {table}")
+        tables = ["audit_logs", "claims", "conversations", "items", "messages", "users", "webauthn_credentials"]
+        for t in tables:
+            print(f"- {t}")
             
-        print("\nChecking 'claims' columns:")
-        cursor.execute("DESCRIBE claims")
-        for col in cursor.fetchall():
-            print(f"  {col[0]} {col[1]}")
+        print("\nChecking 'users' columns:")
+        cursor.execute("DESCRIBE users")
+        for row in cursor.fetchall():
+            print(f"  {row['Field']} {row['Type']}")
 
         print("\nChecking 'messages' columns:")
         cursor.execute("DESCRIBE messages")
         for col in cursor.fetchall():
-            print(f"  {col[0]} {col[1]}")
+            print(f"  {col['Field']} {col['Type']}")
 
         cursor.close()
         conn.close()
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"Error: {err}")
 
 if __name__ == "__main__":

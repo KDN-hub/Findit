@@ -25,6 +25,7 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [secondsRemaining, setSecondsRemaining] = useState(0);
+  const [pendingOther, setPendingOther] = useState(false);
 
   const fetchMyCode = useCallback(async () => {
     setLoading(true);
@@ -111,7 +112,12 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
       const data = await response.json();
       setError('');
       onSuccess?.(data);
-      onClose();
+      
+      if (data.handover_status === 'pending_other') {
+        setPendingOther(true);
+      } else {
+        onClose();
+      }
 
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to verify code';
@@ -126,6 +132,7 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
     setOtherCode('');
     setSecondsRemaining(0);
     setError('');
+    setPendingOther(false);
     onClose();
   };
 
@@ -133,6 +140,36 @@ export function HandoverModal({ isOpen, conversationId, isFinder, onClose, onSuc
   const showCode = !!myCode && !codeExpired;
 
   if (!isOpen) return null;
+
+  if (pendingOther) {
+    return (
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+        onClick={handleClose}
+      >
+        <div
+          className="bg-white rounded-3xl w-full max-w-sm p-8 text-center animate-slide-up shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Verified!</h2>
+          <p className="text-slate-600 mb-6">
+            You have successfully verified the code. Waiting for the other person to verify yours...
+          </p>
+          <button
+            onClick={handleClose}
+            className="w-full py-3 bg-[#F1F5F9] hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

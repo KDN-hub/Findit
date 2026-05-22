@@ -134,7 +134,7 @@ export default function ConversationPage() {
           // Detect handover success from either side (ref prevents infinite re-trigger)
           if (!hasShownSuccessRef.current) {
             const hasHandoverSuccess = data.some(
-              (msg: ChatMessage) => msg.content?.includes('Handover Verified')
+              (msg: ChatMessage) => msg.content?.includes('Handover Complete')
             );
             if (hasHandoverSuccess) {
               hasShownSuccessRef.current = true;
@@ -384,8 +384,8 @@ export default function ConversationPage() {
           isFinder={isFinder}
           onClose={() => setShowHandoverModal(false)}
           onSuccess={(data) => {
-            setShowHandoverModal(false);
             if (data?.handover_status === 'success') {
+              setShowHandoverModal(false);
               setIsHandoverComplete(true);
               setShowSuccessAnimation(true);
             }
