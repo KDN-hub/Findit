@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-import mysql.connector
+import pymysql
 import random
 from datetime import datetime
 import pusher
@@ -121,7 +121,7 @@ def start_claim(
 
         return {"success": True, "claim_id": claim_id}
         
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -190,7 +190,7 @@ def list_claims(
             
         return results
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -225,7 +225,7 @@ def reject_claim(
         
         db.commit()
         return {"success": True}
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(err))
     finally:
@@ -280,7 +280,7 @@ def get_message_thread(
             
         return cleaned_messages
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=str(err))
     finally:
         cursor.close()
@@ -329,7 +329,7 @@ def send_message(
         
         return {"success": True, "message_id": message_id}
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(err))
     finally:
@@ -381,7 +381,7 @@ def request_identity(
                        
         db.commit()
         return {"success": True}
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(err))
     finally:
@@ -445,7 +445,7 @@ def submit_identity(
         db.commit()
         return {"success": True}
         
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(err))
     finally:
@@ -486,7 +486,7 @@ def initiate_handover(
         db.commit()
         return {"success": True, "handover_code": code}
         
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(err))
     finally:
@@ -539,7 +539,7 @@ def confirm_handover(
         db.commit()
         return {"success": True}
         
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(err))
     finally:

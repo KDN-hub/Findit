@@ -4,8 +4,23 @@ Uses the same config as the app (config.py), so env vars from .env or Render wor
 Usage: python init_db.py
 """
 
-import mysql.connector
+import pymysql
 import config  # same env as the app (including DB_NAME e.g. defaultdb on Render)
+import os
+from pathlib import Path
+
+# Resolve robust SSL CA path exactly like database.py
+_ca_path = config.AIVEN_SSL_CA_PATH
+if not os.path.isabs(_ca_path):
+    _possible_paths = [
+        Path.cwd() / _ca_path,
+        Path(__file__).parent.parent / _ca_path,
+        Path(__file__).parent / "certs" / "ca.pem",
+    ]
+    for p in _possible_paths:
+        if p.exists():
+            _ca_path = str(p)
+            break
 
 db_config = {
     "host": config.DB_HOST,
@@ -13,6 +28,7 @@ db_config = {
     "password": config.DB_PASSWORD,
     "database": config.DB_NAME,
     "port": config.DB_PORT,
+    "ssl": {"ca": _ca_path}
 }
 
 # Order matters: users first, then tables that reference users, etc.
@@ -132,7 +148,7 @@ TABLES = [
 def ensure_tables():
     """Create all tables if they don't exist. Safe to call at app startup (equivalent to Base.metadata.create_all)."""
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = pymysql.connect(**db_config)
         cursor = conn.cursor()
         for _name, table_sql in TABLES:
             cursor.execute(table_sql)
@@ -147,7 +163,7 @@ def ensure_tables():
 def main():
     print("Connecting to MySQL...")
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = pymysql.connect(**db_config)
         cursor = conn.cursor()
         print(f"Connected to database '{db_config['database']}' successfully!")
 
@@ -166,7 +182,7 @@ def main():
 
         cursor.close()
         conn.close()
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"\nError: {err}")
         print("\nTroubleshooting:")
         print("  1. Ensure MySQL is running and the database exists.")

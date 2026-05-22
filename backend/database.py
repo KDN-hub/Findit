@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 DATABASE_URL = (
-    f"mysql+mysqlconnector://{config.DB_USER}:{config.DB_PASSWORD}"
+    f"mysql+pymysql://{config.DB_USER}:{config.DB_PASSWORD}"
     f"@{config.DB_HOST}:{config.DB_PORT}/{config.DB_NAME}"
 )
 
@@ -24,11 +24,11 @@ if not os.path.isabs(_ca_path):
             _ca_path = str(p)
             break
 
-# Aiven requires SSL — uses their CA cert for identity verification
+# Aiven requires SSL — PyMySQL uses a nested 'ssl' dictionary
 connect_args = {
-    "ssl_verify_cert": True,
-    "ssl_verify_identity": True,
-    "ssl_ca": _ca_path  # Robustly resolved path to ca.pem
+    "ssl": {
+        "ca": _ca_path
+    }
 }
 
 engine = create_engine(

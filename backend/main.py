@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
-import mysql.connector
+import pymysql
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import uuid
@@ -324,21 +324,29 @@ class AuditLogEntry(BaseModel):
     role: Optional[str] = None
 
 
-def log_audit(db, user_id: Optional[int], action: str, item_id: Optional[int] = None, details: Optional[str] = None, ip_address: Optional[str] = None):
-    """Record an audit event. Does not raise; logs errors."""
-    cursor = db.cursor()
+import threading
+
+def _run_audit_bg(user_id, action, item_id, details, ip_address):
     try:
-        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)  # Store as naive UTC in MySQL
-        cursor.execute(
-            "INSERT INTO audit_logs (user_id, action, item_id, details, ip_address, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
-            (user_id, action, item_id, details, ip_address, now_utc),
-        )
-        db.commit()
+        from database import engine
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
+            now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+            cursor.execute(
+                "INSERT INTO audit_logs (user_id, action, item_id, details, ip_address, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+                (user_id, action, item_id, details, ip_address, now_utc),
+            )
+            conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
     except Exception as e:
-        db.rollback()
         print(f"[AUDIT] Failed to log {action}: {e}")
-    finally:
-        cursor.close()
+
+def log_audit(db, user_id: Optional[int], action: str, item_id: Optional[int] = None, details: Optional[str] = None, ip_address: Optional[str] = None):
+    """Record an audit event. Runs in a background thread to prevent blocking the API response."""
+    threading.Thread(target=_run_audit_bg, args=(user_id, action, item_id, details, ip_address)).start()
 
 @app.get("/")
 def read_root():
@@ -386,7 +394,7 @@ def get_me(current_user: dict = Depends(get_current_user), db=Depends(get_db_con
             raise HTTPException(status_code=404, detail="User not found")
         user["is_admin"] = bool(user.get("is_admin"))
         return user
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -431,7 +439,7 @@ def get_user_stats(current_user: dict = Depends(get_current_user), db=Depends(ge
             "claims": claims,
             "reunited": reunited
         }
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -454,7 +462,7 @@ def delete_my_account(
             raise HTTPException(status_code=404, detail="User not found")
         db.commit()
         return {"detail": "Account deleted successfully"}
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -525,7 +533,7 @@ def login(
             "access_token": access_token,
             "token_type": "bearer",
         }
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -596,7 +604,7 @@ def google_login(login_data: GoogleLoginRequest, background_tasks: BackgroundTas
 
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid Google Token")
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -658,7 +666,7 @@ def _register_user(user_data: RegisterRequest, db):
         return {"message": "User registered successfully"}
     except HTTPException:
         raise
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -746,7 +754,7 @@ def forgot_password(
 
     except HTTPException:
         raise
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         print(f"[FORGOT-PW] ❌ Database error: {err}")
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
@@ -789,7 +797,7 @@ def reset_password(data: ResetPasswordRequest, db=Depends(get_db_connection)):
 
     except HTTPException:
         raise
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -871,7 +879,7 @@ async def create_item(
 
         return item
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -937,7 +945,7 @@ def get_items(
 
         return items
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -984,7 +992,7 @@ def get_item(
     except HTTPException:
         # Re-raise HTTP exceptions (like 404)
         raise
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"DEBUG: Database error fetching item {item_id}: {err}")
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -1079,7 +1087,7 @@ def create_claim(
 
         return claim
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -1141,7 +1149,7 @@ def generate_pin(
 
         return {"pin": pin}
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -1185,7 +1193,7 @@ def verify_pin(
 
         return {"success": True}
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -1262,7 +1270,7 @@ def initiate_conversation(
         
         return {"conversation_id": new_id, "status": "new"}
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -1363,7 +1371,7 @@ def get_conversation(
             "verification_submitted": verification_submitted,
         }
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -1462,7 +1470,7 @@ def get_conversation_messages(
                 
         return messages
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -1547,7 +1555,7 @@ def get_my_conversations(
 
         return results
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -1629,7 +1637,7 @@ def get_conversations_legacy(
 
         return results
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -1690,7 +1698,7 @@ def start_handover(
         my_code = finder_code if current_user_id == convo['finder_id'] else claimer_code
         return {"my_code": my_code}
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -1783,7 +1791,7 @@ def verify_handover(
         # 7. Update item status to Returned (handover complete); fallback to Recovered if enum not migrated yet
         try:
             cursor.execute("UPDATE items SET status = 'Returned' WHERE id = %s", (item_id,))
-        except mysql.connector.Error:
+        except pymysql.Error:
             cursor.execute("UPDATE items SET status = 'Recovered' WHERE id = %s", (item_id,))
         db.commit()
         return {
@@ -1794,7 +1802,7 @@ def verify_handover(
 
     except HTTPException:
         raise
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -1872,7 +1880,7 @@ def get_messages_history(
 
         return messages
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -1974,7 +1982,7 @@ def create_message(
 
         return msg
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -2047,7 +2055,7 @@ def submit_verification(
             "message_id": new_id
         }
 
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -2097,7 +2105,7 @@ def approve_verification(
         )
         db.commit()
         return {"status": "success", "message": "Verification approved"}
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -2135,7 +2143,7 @@ def read_user_items(current_user: dict = Depends(get_current_user), db=Depends(g
             # Add reporter_name if needed, though mostly for others viewing
             item['reporter_name'] = current_user['full_name']
         return items
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -2191,7 +2199,7 @@ def read_user_claims(current_user: dict = Depends(get_current_user), db=Depends(
              })
              
         return results
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
@@ -2496,7 +2504,7 @@ def admin_toggle_suspend(
         cursor.execute("UPDATE users SET is_suspended = %s WHERE id = %s", (new_val, user_id))
         db.commit()
         return {"user_id": user_id, "suspended": bool(new_val), "message": "User suspended." if new_val else "User unsuspended."}
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(err))
     finally:
@@ -2533,7 +2541,7 @@ def normalize_locations(admin=Depends(require_admin), db=Depends(get_db_connecti
             "total_items": len(items),
             "updated": updated_count,
         }
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -2586,7 +2594,7 @@ def wipe_items(admin=Depends(require_admin), db=Depends(get_db_connection)):
 
         print(f"[WIPE] Full database reset performed. {deleted_images_count} images removed.")
         return {"message": f"Full reset complete. Items, users (except root), and logs cleared. {deleted_images_count} images removed from Cloudinary."}
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -2629,7 +2637,7 @@ def delete_single_item(item_id: int, admin=Depends(require_admin), db=Depends(ge
 
         print(f"[DELETE] Item {item_id} ('{item['title']}') and related data deleted.")
         return {"message": f"Item '{item['title']}' (ID: {item_id}) has been deleted."}
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
