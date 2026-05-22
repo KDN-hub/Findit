@@ -35,8 +35,8 @@ engine = create_engine(
     DATABASE_URL,
     pool_size=10,
     max_overflow=20,
-    pool_recycle=1800,
-    pool_pre_ping=True,
+    pool_recycle=280,  # Recycle before Aiven's 5-minute timeout drops it
+    pool_pre_ping=False,  # REMOVE the 0.75s ping latency on EVERY request!
     connect_args=connect_args
 )
 
