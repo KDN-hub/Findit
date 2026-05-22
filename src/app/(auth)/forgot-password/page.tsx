@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
     });
   }
 
-  // ── Step 2: Verify OTP (just advance to step 3) ──────────
+  // ── Step 2: Verify OTP (Call server to validate) ──────────
   function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -55,7 +55,25 @@ export default function ForgotPasswordPage() {
       setError('Please enter the 4-digit code from your email.');
       return;
     }
-    setStep(3);
+    
+    startTransition(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/verify-reset-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, otp }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.detail || 'Invalid or expired code. Please try again.');
+          return;
+        }
+        // Code is correct, advance to Step 3
+        setStep(3);
+      } catch {
+        setError('Could not connect to the server. Please try again.');
+      }
+    });
   }
 
   // ── Step 3: Reset Password ────────────────────────────────

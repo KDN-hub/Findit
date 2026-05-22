@@ -793,6 +793,41 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
+class VerifyResetCodeRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+@app.post("/auth/verify-reset-code")
+def verify_reset_code(data: VerifyResetCodeRequest, db=Depends(get_db_connection)):
+    """Verifies the OTP without resetting the password."""
+    cursor = db.cursor(pymysql.cursors.DictCursor)
+    try:
+        cursor.execute(
+            "SELECT id, reset_code, reset_code_expires FROM users WHERE email = %s",
+            (data.email,)
+        )
+        user = cursor.fetchone()
+
+        if not user:
+            raise HTTPException(status_code=400, detail="Invalid request")
+
+        # Check OTP exists and matches
+        if not user["reset_code"] or user["reset_code"] != data.otp:
+            raise HTTPException(status_code=400, detail="Invalid or incorrect code")
+
+        # Check expiry
+        if not user["reset_code_expires"] or datetime.utcnow() > user["reset_code_expires"]:
+            raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
+
+        return {"message": "Code verified successfully"}
+
+    except HTTPException:
+        raise
+    except pymysql.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
     otp: str
