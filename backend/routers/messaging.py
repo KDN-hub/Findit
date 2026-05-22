@@ -329,6 +329,11 @@ def send_message(
         
         return {"success": True, "message_id": message_id}
 
+    except mysql.connector.Error as err:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
 
 @router.post("/pusher/auth")
 def pusher_auth(req: PusherAuthRequest, current_user: dict = Depends(get_current_user)):
@@ -347,12 +352,6 @@ def pusher_auth(req: PusherAuthRequest, current_user: dict = Depends(get_current
         return auth
     except Exception as e:
         raise HTTPException(status_code=403, detail=str(e))
-        
-    except mysql.connector.Error as err:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(err))
-    finally:
-        cursor.close()
 
 # ──────────────────────────────────────────────────────────
 # HANDSHAKE FLOW
