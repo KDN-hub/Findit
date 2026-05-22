@@ -7,11 +7,28 @@ DATABASE_URL = (
     f"@{config.DB_HOST}:{config.DB_PORT}/{config.DB_NAME}"
 )
 
+import os
+from pathlib import Path
+
+# Try to find the exact absolute path to ca.pem
+_ca_path = config.AIVEN_SSL_CA_PATH
+if not os.path.isabs(_ca_path):
+    # Try relative to the project root or the backend folder
+    _possible_paths = [
+        Path.cwd() / _ca_path,
+        Path(__file__).parent.parent / _ca_path,
+        Path(__file__).parent / "certs" / "ca.pem",
+    ]
+    for p in _possible_paths:
+        if p.exists():
+            _ca_path = str(p)
+            break
+
 # Aiven requires SSL — uses their CA cert for identity verification
 connect_args = {
     "ssl_verify_cert": True,
     "ssl_verify_identity": True,
-    "ssl_ca": config.AIVEN_SSL_CA_PATH  # Path to the ca.pem Aiven gives you
+    "ssl_ca": _ca_path  # Robustly resolved path to ca.pem
 }
 
 engine = create_engine(
