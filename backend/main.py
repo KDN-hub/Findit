@@ -42,7 +42,7 @@ ensure_tables()
 
 def require_admin(current_user: dict = Depends(get_current_user), db=Depends(get_db_connection)):
     """Dependency that rejects non-admin users. Checks is_admin flag or role='admin' from DB."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute(
             "SELECT id, role, is_admin FROM users WHERE id = %s",
@@ -383,7 +383,7 @@ def test_email():
 @app.get("/users/me", response_model=UserProfileResponse)
 def get_me(current_user: dict = Depends(get_current_user), db=Depends(get_db_connection)):
     """Protected route: returns the logged-in user's profile."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute(
             "SELECT id, email, full_name, avatar_url, role, auth_provider, COALESCE(is_admin, 0) AS is_admin, matric_number FROM users WHERE email = %s",
@@ -407,7 +407,7 @@ def get_user_stats(current_user: dict = Depends(get_current_user), db=Depends(ge
     - Claims: Count of conversations where user is claimer (claimer_id == current_user.id AND finder_id != current_user.id)
     - Reunited: Count of items owned by user with status == 'Recovered'
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         user_id = current_user['id']
         
@@ -477,7 +477,7 @@ def login(
     response: Response,
     db=Depends(get_db_connection),
 ):
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         query = "SELECT * FROM users WHERE email = %s"
         cursor.execute(query, (login_data.email,))
@@ -555,7 +555,7 @@ def google_login(login_data: GoogleLoginRequest, background_tasks: BackgroundTas
         avatar_url = id_info.get('picture')
         
         # Check database for user
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
         
         # Check if user already exists
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
@@ -622,7 +622,7 @@ class RegisterRequest(BaseModel):
 
 def _register_user(user_data: RegisterRequest, db):
     """Shared registration logic for /auth/register and /auth/signup. Enforces staff email and student matric."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         role = (user_data.role or "visitor").lower()
         allowed = {"student", "staff", "visitor"}
@@ -721,7 +721,7 @@ def forgot_password(
 ):
     """Generates a 4-digit OTP, saves it to DB, and queues email via Resend in the background."""
     print(f"[FORGOT-PW] Request received for email: {data.email}")
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Find ANY user with this email (Google or email accounts)
         cursor.execute(
@@ -766,7 +766,7 @@ def forgot_password(
 @app.post("/auth/reset-password")
 def reset_password(data: ResetPasswordRequest, db=Depends(get_db_connection)):
     """Verifies OTP and updates the user's password."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute(
             "SELECT id, reset_code, reset_code_expires FROM users WHERE email = %s",
@@ -825,7 +825,7 @@ async def create_item(
     db=Depends(get_db_connection),
 ):
     """Protected route: submit a new lost/found item (multipart/form-data). Response returns immediately; item notification email runs in background."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         user_id = current_user["id"]
 
@@ -898,7 +898,7 @@ def get_items(
     """Public route: fetch all reported items, newest first.
     Supports optional filters: ?q=search_text, ?status=Lost|Found, ?category=Electronics
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         base_query = """
             SELECT i.*, u.full_name AS reporter_name
@@ -959,7 +959,7 @@ def get_item(
     """Public route: fetch a single item by its ID with optimized query."""
     print(f"DEBUG: Fetching item {item_id}")
     
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Efficient query with JOIN to fetch item and owner in single query (prevents N+1)
         cursor.execute("""
@@ -1012,7 +1012,7 @@ def create_claim(
     2. Initiates a chat by sending a system message to the finder.
     3. Returns conversation_id so frontend can redirect.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # 1. Fetch item and finder details
         cursor.execute("""
@@ -1127,7 +1127,7 @@ def generate_pin(
     Protected route (Finder only).
     Generates a 4-digit PIN for the item if the current user is the owner (finder).
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Check item ownership
         cursor.execute("SELECT user_id, status FROM items WHERE id = %s", (item_id,))
@@ -1166,7 +1166,7 @@ def verify_pin(
     Protected route (Claimer only - technically anyone who isn't the finder, or just anyone with the PIN).
     Verifies the PIN. If correct, marks item as 'Recovered' and clears the PIN.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("SELECT user_id, verification_pin, status FROM items WHERE id = %s", (item_id,))
         item = cursor.fetchone()
@@ -1222,7 +1222,7 @@ def initiate_conversation(
     Robust fix: checks if ANY conversation exists for this item 
     involving the current user (as finder OR claimer).
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         current_user_id = current_user['id']
         item_id = request.item_id
@@ -1307,7 +1307,7 @@ def get_conversation(
     """
     Fetch conversation details including the other participant.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         current_user_id = current_user['id']
         
@@ -1385,7 +1385,7 @@ def get_conversation_messages(
     """
     Fetch all messages for a specific conversation.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Check if conversation exists and user is a participant
         check_query = """
@@ -1485,7 +1485,7 @@ def get_my_conversations(
     """
     Returns a list of conversations for the current user.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         current_user_id = current_user['id']
         
@@ -1568,7 +1568,7 @@ def get_conversations_legacy(
     """
     Returns a list of conversations for the current user using the 'conversations' table.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         current_user_id = current_user['id']
         
@@ -1661,7 +1661,7 @@ def start_handover(
     Sets finder_code_created_at and claimer_code_created_at to UTC now for 15-min expiry.
     Returns only the current user's code.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         current_user_id = current_user['id']
         now_utc = datetime.now(timezone.utc)
@@ -1717,7 +1717,7 @@ def verify_handover(
     the submitter is the Claimer; input_code == claimer_code when the submitter is the Finder.
     Uses timezone-aware UTC for the 15-minute expiry.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         current_user_id = current_user['id']
         input_code = verify_data.code.strip()
@@ -1817,7 +1817,7 @@ def get_messages_history(
     """
     Protected route: fetch all messages for a specific conversation.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("SELECT item_id, finder_id, claimer_id FROM conversations WHERE id = %s", (conversation_id,))
         convo = cursor.fetchone()
@@ -1907,7 +1907,7 @@ def create_message(
     Protected route: Send a message. If this is the first message in the conversation
     and the sender is the Claimer, automatically send a one-time verification prompt from the System user.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         sender_id = current_user["id"]
         item_id = message_data.item_id
@@ -2001,7 +2001,7 @@ def submit_verification(
     """
     Submit identity verification answers as a message in the conversation.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         current_user_id = current_user['id']
         
@@ -2073,7 +2073,7 @@ def approve_verification(
     Only the finder (item owner) for this conversation can call this.
     Inserts a system-style message and returns success.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         current_user_id = current_user["id"]
         cursor.execute(
@@ -2131,7 +2131,7 @@ class UserClaimResponse(BaseModel):
 @app.get("/users/me/items", response_model=List[ItemResponse])
 def read_user_items(current_user: dict = Depends(get_current_user), db=Depends(get_db_connection)):
     """Fetches items reported by the current user."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("SELECT * FROM items WHERE user_id = %s ORDER BY created_at DESC", (current_user['id'],))
         items = cursor.fetchall()
@@ -2151,7 +2151,7 @@ def read_user_items(current_user: dict = Depends(get_current_user), db=Depends(g
 @app.get("/users/me/claims", response_model=List[UserClaimResponse])
 def read_user_claims(current_user: dict = Depends(get_current_user), db=Depends(get_db_connection)):
     """Fetches claims made by the current user, including item details."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Get claims joined with item details and finder info
         # Logic updated to match 'Stats': Count conversations where I am claimer.
@@ -2245,7 +2245,7 @@ def admin_auth(req: AdminAuthRequest, response: Response, db=Depends(get_db_conn
     if req.passcode != "admin_12345":
         raise HTTPException(status_code=401, detail="Invalid admin passcode")
     
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Check if the root admin user exists
         cursor.execute("SELECT id, email, role, is_admin FROM users WHERE email = %s", ('root@admin.findit',))
@@ -2303,7 +2303,7 @@ def get_admin_audit_logs(
     db=Depends(get_db_connection),
 ):
     """Return latest audit log entries for the admin dashboard."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("""
             SELECT a.id, a.user_id, a.action, a.item_id, a.details, a.ip_address, a.created_at, 
@@ -2328,7 +2328,7 @@ def get_admin_users(
     db=Depends(get_db_connection),
 ):
     """Return all registered users for admin user table."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("""
             SELECT u.id, u.email, u.full_name, u.role, u.matric_number,
@@ -2384,7 +2384,7 @@ class HandoversResponse(BaseModel):
 @app.get("/admin/handovers", response_model=HandoversResponse)
 def get_admin_handovers(admin=Depends(require_admin), db=Depends(get_db_connection)):
     """Return stuck claims (>24h since code generated and not recovered) and completed handovers."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Stuck claims: Conversations where a code was generated > 24h ago but item not recovered
         cursor.execute("""
@@ -2436,7 +2436,7 @@ def get_admin_handovers(admin=Depends(require_admin), db=Depends(get_db_connecti
 @app.get("/admin/tracking/stats")
 def get_tracking_stats(admin=Depends(require_admin), db=Depends(get_db_connection)):
     """Returns daily counts of reports and claims for the last 30 days."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Get reports per day
         cursor.execute("""
@@ -2467,7 +2467,7 @@ def get_tracking_stats(admin=Depends(require_admin), db=Depends(get_db_connectio
 @app.get("/admin/tracking/timeline")
 def get_tracking_timeline(admin=Depends(require_admin), db=Depends(get_db_connection)):
     """Returns a lifecycle view of items: when reported and when (first) claimed."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("""
             SELECT i.id, i.title, i.created_at AS reported_at, i.status,
@@ -2492,7 +2492,7 @@ def admin_toggle_suspend(
     db=Depends(get_db_connection),
 ):
     """Toggle is_suspended for a user. Suspended users cannot log in."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("SELECT id, email, is_suspended FROM users WHERE id = %s", (user_id,))
         user = cursor.fetchone()
@@ -2514,7 +2514,7 @@ def admin_toggle_suspend(
 @app.post("/admin/normalize-locations")
 def normalize_locations(admin=Depends(require_admin), db=Depends(get_db_connection)):
     """One-time migration: prefix non-standard locations with 'Other - '."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("SELECT id, location FROM items")
         items = cursor.fetchall()
@@ -2552,7 +2552,7 @@ def normalize_locations(admin=Depends(require_admin), db=Depends(get_db_connecti
 def wipe_items(admin=Depends(require_admin), db=Depends(get_db_connection)):
     """Permanently delete ALL data (items, claims, messages, conversations, logs, users). 
     Preserves specialized root/system accounts for platform stability."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # 1. Fetch all items with images to delete from Cloudinary
         cursor.execute("SELECT id, image_url FROM items WHERE image_url IS NOT NULL")
@@ -2604,7 +2604,7 @@ def wipe_items(admin=Depends(require_admin), db=Depends(get_db_connection)):
 @app.delete("/admin/items/{item_id}")
 def delete_single_item(item_id: int, admin=Depends(require_admin), db=Depends(get_db_connection)):
     """Delete a single item by ID, along with its related messages, claims, and conversations. Also cleans up Cloudinary."""
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("SELECT id, title, image_url FROM items WHERE id = %s", (item_id,))
         item = cursor.fetchone()

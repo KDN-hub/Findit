@@ -56,7 +56,7 @@ def start_claim(
     Step 1: User clicks "Claim This Item".
      Creates a claim record and starts the conversation.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         current_user_id = current_user['id']
         
@@ -135,7 +135,7 @@ def list_claims(
     """
     List all claims where current user is finder OR claimer.
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         user_id = current_user['id']
         
@@ -202,7 +202,7 @@ def reject_claim(
     current_user: dict = Depends(get_current_user),
     db=Depends(get_db_connection)
 ):
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Check permissions - only finder can reject? 
         # Prompt says: "Only the finder -> else 403"
@@ -241,7 +241,7 @@ def get_message_thread(
     current_user: dict = Depends(get_current_user),
     db=Depends(get_db_connection)
 ):
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         user_id = current_user['id']
         
@@ -291,7 +291,7 @@ def send_message(
     current_user: dict = Depends(get_current_user),
     db=Depends(get_db_connection)
 ):
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         user_id = current_user['id']
         
@@ -363,7 +363,7 @@ def request_identity(
     current_user: dict = Depends(get_current_user),
     db=Depends(get_db_connection)
 ):
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Check permission: Only Finder
         cursor.execute("SELECT finder_id FROM claims WHERE id = %s", (request.claim_id,))
@@ -394,7 +394,7 @@ def submit_identity(
     db=Depends(get_db_connection)
 ):
     import json
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Check permission: Only Claimer
         cursor.execute("SELECT claimer_id, status FROM claims WHERE id = %s", (request.claim_id,))
@@ -457,7 +457,7 @@ def initiate_handover(
     current_user: dict = Depends(get_current_user),
     db=Depends(get_db_connection)
 ):
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Check permission: Only Finder
         cursor.execute("SELECT finder_id, status FROM claims WHERE id = %s", (request.claim_id,))
@@ -498,7 +498,7 @@ def confirm_handover(
     current_user: dict = Depends(get_current_user),
     db=Depends(get_db_connection)
 ):
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     try:
         # Permission: Only Claimer
         # Lock the row for update to prevent race conditions
