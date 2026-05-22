@@ -17,7 +17,7 @@ MAIL_FROM = config.MAIL_FROM
 # ──────────────────────────────────────────────────────────
 # FASTAPI IMPORTS
 # ──────────────────────────────────────────────────────────
-from fastapi import FastAPI, HTTPException, Depends, status, Body, BackgroundTasks, Query, UploadFile, File, Form, Request
+from fastapi import FastAPI, HTTPException, Depends, status, Body, BackgroundTasks, Query, UploadFile, File, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
