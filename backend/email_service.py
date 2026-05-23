@@ -23,33 +23,41 @@ MAIL_USERNAME = config.MAIL_USERNAME or SENDER_EMAIL
 
 def send_email_smtp(recipient_email: str, subject: str, html_body: str):
     """
-    Core function to send an email via Brevo HTTP API.
+    Core function to send an email via SendGrid HTTP API.
     Runs inside FastAPI BackgroundTasks.
     """
-    # Use MAIL_PASSWORD as the Brevo API Key
+    # Use MAIL_PASSWORD as the SendGrid API Key
     api_key = config.MAIL_PASSWORD
     if not api_key:
-        print("[EMAIL] ERROR: MAIL_PASSWORD (Brevo API Key) not set. Cannot send email.")
+        print("[EMAIL] ERROR: MAIL_PASSWORD (SendGrid API Key) not set. Cannot send email.")
         return
 
-    url = "https://api.brevo.com/v3/smtp/email"
+    url = "https://api.sendgrid.com/v3/mail/send"
     headers = {
-        "accept": "application/json",
-        "api-key": api_key,
-        "content-type": "application/json"
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
     }
     payload = {
-        "sender": {"email": SENDER_EMAIL, "name": "FindIt"},
-        "to": [{"email": recipient_email}],
-        "subject": subject,
-        "htmlContent": html_body
+        "personalizations": [
+            {
+                "to": [{"email": recipient_email}],
+                "subject": subject
+            }
+        ],
+        "from": {"email": SENDER_EMAIL, "name": "FindIt"},
+        "content": [
+            {
+                "type": "text/html",
+                "value": html_body
+            }
+        ]
     }
 
     try:
         import requests
         response = requests.post(url, json=payload, headers=headers, timeout=15)
         response.raise_for_status()
-        print(f"[EMAIL] SUCCESS: Email sent to {recipient_email} via Brevo API")
+        print(f"[EMAIL] SUCCESS: Email sent to {recipient_email} via SendGrid API")
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send email to {recipient_email}: {e}")
         if hasattr(e, 'response') and e.response is not None:
