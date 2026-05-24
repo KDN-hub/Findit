@@ -26,6 +26,15 @@ function SignUpForm() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
 
+  function validatePasswordStrength(pwd: string): string | null {
+    if (pwd.length < 8) return 'Password must be at least 8 characters long.';
+    if (!/[A-Z]/.test(pwd)) return 'Password must contain at least one uppercase letter.';
+    if (!/[a-z]/.test(pwd)) return 'Password must contain at least one lowercase letter.';
+    if (!/\d/.test(pwd)) return 'Password must contain at least one number.';
+    if (!/[@$!%*?&_#^~-]/.test(pwd)) return 'Password must contain at least one special character.';
+    return null;
+  }
+
   async function handleSubmit(formData: FormData) {
     setErrors({});
     setGeneralError('');
@@ -37,6 +46,12 @@ function SignUpForm() {
         const password = formData.get('password') as string;
         const formRole = formData.get('role') as string;
         const matric_number = formData.get('matric_number') as string | null;
+
+        const pwdError = validatePasswordStrength(password);
+        if (pwdError) {
+          setGeneralError(pwdError);
+          return;
+        }
 
         if (formRole === 'staff' && !email.toLowerCase().endsWith('@babcock.edu.ng')) {
           setGeneralError('Staff accounts must use a @babcock.edu.ng email address.');
@@ -210,6 +225,9 @@ function SignUpForm() {
             {errors.password && (
               <p className="mt-1.5 text-sm text-red-500">{errors.password[0]}</p>
             )}
+            <p className="mt-2 text-xs text-slate-400">
+              Must be at least 8 characters, with uppercase, lowercase, number, and special character.
+            </p>
 
             {/* Forgot Password Link */}
             <div className="text-right mt-2">

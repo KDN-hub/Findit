@@ -51,7 +51,11 @@ export default function SettingsPage() {
       // 1. Get options from server
       const optRes = await fetch(`${API_BASE_URL}/auth/webauthn/register/generate-options`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({})
       });
       if (!optRes.ok) throw new Error('Failed to get registration options');
       const options = await optRes.json();

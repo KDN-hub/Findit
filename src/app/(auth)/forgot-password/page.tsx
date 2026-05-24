@@ -19,6 +19,15 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  function validatePasswordStrength(pwd: string): string | null {
+    if (pwd.length < 8) return 'Password must be at least 8 characters long.';
+    if (!/[A-Z]/.test(pwd)) return 'Password must contain at least one uppercase letter.';
+    if (!/[a-z]/.test(pwd)) return 'Password must contain at least one lowercase letter.';
+    if (!/\d/.test(pwd)) return 'Password must contain at least one number.';
+    if (!/[@$!%*?&_#^~-]/.test(pwd)) return 'Password must contain at least one special character.';
+    return null;
+  }
+
   // ── Step 1: Send OTP ──────────────────────────────────────
   function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
@@ -80,8 +89,9 @@ export default function ForgotPasswordPage() {
   function handleResetPassword(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters.');
+    const pwdError = validatePasswordStrength(newPassword);
+    if (pwdError) {
+      setError(pwdError);
       return;
     }
     startTransition(async () => {
@@ -265,7 +275,7 @@ export default function ForgotPasswordPage() {
                   placeholder="••••••••••"
                   className="w-full h-14 px-4 pr-12 bg-[#F1F5F9] rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#003898] transition-all"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
                 <button
                   type="button"
@@ -284,7 +294,7 @@ export default function ForgotPasswordPage() {
                   )}
                 </button>
               </div>
-              <p className="mt-1.5 text-xs text-slate-400">Minimum 6 characters</p>
+              <p className="mt-1.5 text-xs text-slate-400">Must be at least 8 characters, with uppercase, lowercase, number, and special character.</p>
             </div>
           </div>
 

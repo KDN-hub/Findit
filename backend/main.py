@@ -32,7 +32,7 @@ import cloudinary
 import cloudinary.uploader
 
 from database import get_db_connection
-from auth_utils import verify_password, get_password_hash, create_access_token, get_current_user, set_auth_cookies
+from auth_utils import verify_password, get_password_hash, create_access_token, get_current_user, set_auth_cookies, validate_password_strength
 from email_service import send_login_alert_email, send_reset_code_email, send_welcome_email, send_item_notification, send_registration_otp_email
 from routers import messaging
 from init_db import ensure_tables
@@ -660,6 +660,7 @@ def _register_user(user_data: RegisterRequest, db):
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Email already registered")
 
+        validate_password_strength(user_data.password)
         hashed_password = get_password_hash(user_data.password)
         
         # Generate OTP
@@ -906,6 +907,7 @@ def reset_password(data: ResetPasswordRequest, db=Depends(get_db_connection)):
         if not user["reset_code_expires"] or datetime.utcnow() > user["reset_code_expires"]:
             raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
 
+        validate_password_strength(data.new_password)
         # Hash new password and clear reset fields
         new_hash = get_password_hash(data.new_password)
         cursor.execute(

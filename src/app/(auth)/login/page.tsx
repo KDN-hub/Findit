@@ -71,7 +71,12 @@ function LoginForm() {
         
         if (!optRes.ok) {
           const err = await optRes.json();
-          setGeneralError(err.detail || 'Could not start biometric login.');
+          const detail = err.detail || 'Could not start biometric login.';
+          if (detail.toLowerCase().includes('not found')) {
+            setGeneralError('No fingerprint registered. Please log in with password to register one in settings.');
+          } else {
+            setGeneralError(detail);
+          }
           return;
         }
         const options = await optRes.json();
@@ -155,10 +160,11 @@ function LoginForm() {
     });
   }
 
-  // Quick Login View rendering
-  if (view === 'quick' && lastUser) {
-    return (
-      <div className="min-h-dvh bg-white flex flex-col px-6 pt-16 pb-8 safe-area-top safe-area-bottom items-center">
+  return (
+    <>
+      {/* Quick Login View rendering */}
+      {view === 'quick' && lastUser && (
+        <div className="min-h-dvh bg-white md:hidden flex flex-col px-6 pt-16 pb-8 safe-area-top safe-area-bottom items-center">
         
         {/* App Logo */}
         <div className="mb-10 text-center">
@@ -241,12 +247,11 @@ function LoginForm() {
           </button>
         </div>
 
-      </div>
-    );
-  }
+        </div>
+      )}
 
-  return (
-    <div className="min-h-dvh bg-white flex flex-col px-6 pt-10 pb-8 safe-area-top safe-area-bottom">
+      {/* Normal Login View rendering */}
+      <div className={`min-h-dvh bg-white flex flex-col px-6 pt-10 pb-8 safe-area-top safe-area-bottom ${view === 'quick' && lastUser ? 'hidden md:flex' : ''}`}>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-[32px] font-bold text-[#003898] mb-2 mt-4">Welcome back!</h1>
@@ -371,6 +376,7 @@ function LoginForm() {
         </div>
       </form>
     </div>
+    </>
   );
 }
 
