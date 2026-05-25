@@ -57,7 +57,13 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({})
       });
-      if (!optRes.ok) throw new Error('Failed to get registration options');
+      if (!optRes.ok) {
+        if (optRes.status === 401) {
+          throw new Error('Your session has expired. Please log out and log back in to enable fingerprint.');
+        }
+        const errText = await optRes.text().catch(() => 'No text');
+        throw new Error(`Failed to get registration options: ${optRes.status} ${errText}`);
+      }
       const options = await optRes.json();
 
       // 2. Pass options to authenticator
@@ -81,7 +87,10 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({ response: attResp })
       });
-      if (!verifyRes.ok) throw new Error('Failed to verify biometric registration');
+      if (!verifyRes.ok) {
+        const errText = await verifyRes.text().catch(() => 'No text');
+        throw new Error(`Failed to verify biometric registration: ${verifyRes.status} ${errText}`);
+      }
       
       showAlert({ title: 'Success', message: 'Biometric login enabled successfully!', type: 'success' });
     } catch (err: any) {
