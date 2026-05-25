@@ -16,7 +16,9 @@ from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     UserVerificationRequirement,
     RegistrationCredential,
-    AuthenticationCredential
+    AuthenticationCredential,
+    PublicKeyCredentialDescriptor,
+    PublicKeyCredentialType
 )
 from webauthn.helpers.options_to_json import options_to_json
 
@@ -126,7 +128,12 @@ def generate_authentication_options_route(data: AuthenticateOptionsRequest, db =
             raise HTTPException(status_code=400, detail="No biometric credentials registered for this account")
 
         # Allow any of the user's registered credentials
-        allow_credentials = [{"type": "public-key", "id": bytes.fromhex(c["credential_id"])} for c in credentials]
+        allow_credentials = [
+            PublicKeyCredentialDescriptor(
+                type=PublicKeyCredentialType.PUBLIC_KEY,
+                id=bytes.fromhex(c["credential_id"])
+            ) for c in credentials
+        ]
         
         options = generate_authentication_options(
             rp_id=RP_ID,
