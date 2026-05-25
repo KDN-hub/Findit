@@ -34,7 +34,7 @@ import cloudinary.uploader
 from database import get_db_connection
 from auth_utils import verify_password, get_password_hash, create_access_token, get_current_user, set_auth_cookies, validate_password_strength
 from email_service import send_login_alert_email, send_reset_code_email, send_welcome_email, send_item_notification, send_registration_otp_email
-from routers import messaging
+from routers import messaging, webauthn_auth
 from init_db import ensure_tables
 
 # Create all tables if they don't exist (equivalent to SQLAlchemy Base.metadata.create_all)
@@ -175,6 +175,7 @@ def run_migrations():
             conn.close()
 
 app.include_router(messaging.router, prefix="/api", tags=["messaging"])
+app.include_router(webauthn_auth.router)
 
 app.add_middleware(
     CORSMiddleware,
