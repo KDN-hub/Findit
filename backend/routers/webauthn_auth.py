@@ -85,6 +85,9 @@ def verify_registration_route(data: RegistrationVerifyRequest, db = Depends(get_
         # Check if user already has a credential with this ID (unlikely but safe)
         credential_id_str = verification.credential_id.hex()
         
+        import base64
+        public_key_b64 = base64.b64encode(verification.credential_public_key).decode('utf-8')
+
         insert_query = """
         INSERT INTO webauthn_credentials (user_id, credential_id, public_key, sign_count)
         VALUES (%s, %s, %s, %s)
@@ -92,7 +95,7 @@ def verify_registration_route(data: RegistrationVerifyRequest, db = Depends(get_
         cursor.execute(insert_query, (
             current_user["id"],
             credential_id_str,
-            verification.credential_public_key,
+            public_key_b64,
             verification.sign_count
         ))
         db.commit()
@@ -187,12 +190,14 @@ def verify_authentication_route(data: AuthenticationVerifyRequest, response: Res
         if not target_cred:
              raise HTTPException(status_code=400, detail="Unrecognized credential used")
 
+        public_key_bytes = base64.b64decode(target_cred["public_key"])
+
         verification = verify_authentication_response(
             credential=data.response,
             expected_challenge=expected_challenge,
             expected_rp_id=RP_ID,
             expected_origin=RP_ORIGIN,
-            credential_public_key=target_cred["public_key"],
+            credential_public_key=public_key_bytes,
             credential_current_sign_count=target_cred["sign_count"]
         )
 
