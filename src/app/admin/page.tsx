@@ -907,7 +907,7 @@ export default function AdminPage() {
                     )}
                 </div>
 
-                <p className="text-center text-xs text-slate-400 pb-4">FindIt Admin Panel — All actions are logged.</p>
+                <p className="text-center text-xs text-slate-400 pb-4">Findit Admin Panel — All actions are logged.</p>
             </main>
         </div>
     );

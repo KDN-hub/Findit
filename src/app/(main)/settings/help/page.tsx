@@ -118,7 +118,7 @@ export default function HelpSettingsPage() {
 
                 {/* Version Info */}
                 <p className="text-xs text-slate-400 text-center">
-                    FindIt v1.0.0 • Built with ❤️
+                    Findit v1.0.0 • Built with ❤️
                 </p>
             </div>
         </div>

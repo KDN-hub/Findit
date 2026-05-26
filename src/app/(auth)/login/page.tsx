@@ -192,7 +192,7 @@ function LoginForm() {
         
         {/* App Logo */}
         <div className="mb-10 text-center">
-          <h1 className="text-[32px] font-bold tracking-tight text-[#003898]">FindIt</h1>
+          <h1 className="text-[32px] font-bold tracking-tight text-[#003898]">Findit</h1>
         </div>
 
         {/* User Info */}

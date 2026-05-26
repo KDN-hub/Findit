@@ -7,24 +7,24 @@ import Link from 'next/link';
 // ── FAQ Data ──────────────────────────────────────────────────────
 const faqs = [
   {
-    q: 'What is FindIt?',
-    a: 'FindIt is a lost and found platform built for Babcock University. It helps students, staff, and visitors report lost or found items and reconnect with their belongings quickly and securely.',
+    q: 'What is Findit?',
+    a: 'Findit is a lost and found platform built for Babcock University. It helps students, staff, and visitors report lost or found items and reconnect with their belongings quickly and securely.',
   },
   {
-    q: 'How do I install FindIt on my phone?',
-    a: 'Open FindIt in Chrome on your phone, tap the menu (three dots) and select "Add to Home Screen" or "Install App". FindIt will appear on your phone just like a regular app — no App Store needed!',
+    q: 'How do I install Findit on my phone?',
+    a: 'Open Findit in Chrome on your phone, tap the menu (three dots) and select "Add to Home Screen" or "Install App". Findit will appear on your phone just like a regular app — no App Store needed!',
   },
   {
-    q: 'Is FindIt free to use?',
-    a: 'Yes! FindIt is completely free for all Babcock University students, staff, and visitors.',
+    q: 'Is Findit free to use?',
+    a: 'Yes! Findit is completely free for all Babcock University students, staff, and visitors.',
   },
   {
     q: 'How does the claim verification work?',
     a: 'When you claim an item, you submit proof of ownership. The finder reviews it and if approved, both parties receive unique verification codes to confirm a safe handover in person.',
   },
   {
-    q: 'Can I use FindIt on my laptop?',
-    a: 'Absolutely. FindIt works on any device with a web browser. However, the best experience is on mobile — you can install it as an app for quick access.',
+    q: 'Can I use Findit on my laptop?',
+    a: 'Absolutely. Findit works on any device with a web browser. However, the best experience is on mobile — you can install it as an app for quick access.',
   },
 ];
 
@@ -117,9 +117,9 @@ export default function LandingPage() {
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image src="/favicon.svg" alt="FindIt" width={24} height={24} />
+            <Image src="/favicon.svg" alt="Findit" width={24} height={24} />
             <span className={`text-xl font-bold tracking-tight transition-colors ${scrolled ? 'text-[#003898]' : 'text-white'}`}>
-              FindIt
+              Findit
             </span>
           </div>
 
@@ -254,7 +254,7 @@ export default function LandingPage() {
                     {/* App content mock */}
                     <div className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <Image src="/logo-dark.svg" alt="FindIt" width={60} height={24} />
+                        <Image src="/logo-dark.svg" alt="Findit" width={60} height={24} />
                         <div className="w-8 h-8 bg-slate-100 rounded-full" />
                       </div>
                       <div className="mt-2">
@@ -439,10 +439,10 @@ export default function LandingPage() {
           <div className="text-center mb-12">
             <p className="text-white/60 font-semibold text-sm uppercase tracking-wider mb-2">Install the App</p>
             <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-3">
-              Get FindIt on Your Phone
+              Get Findit on Your Phone
             </h2>
             <p className="text-white/50 text-base max-w-lg mx-auto">
-              No App Store needed. Install FindIt directly from your browser in just 3 taps.
+              No App Store needed. Install Findit directly from your browser in just 3 taps.
             </p>
           </div>
 
@@ -534,13 +534,13 @@ export default function LandingPage() {
             Ready to Find What&apos;s Yours?
           </h2>
           <p className="text-slate-500 text-lg mb-8 max-w-lg mx-auto">
-            Join hundreds of Babcock University students already using FindIt to recover their lost belongings.
+            Join hundreds of Babcock University students already using Findit to recover their lost belongings.
           </p>
           <Link
             href="/login"
             className="inline-flex h-14 px-10 bg-[#003898] text-white font-bold text-base rounded-2xl items-center justify-center gap-2 hover:bg-[#002266] transition-all active:scale-95 shadow-lg shadow-[#003898]/20"
           >
-            Open FindIt Now
+            Open Findit Now
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
             </svg>
@@ -555,8 +555,8 @@ export default function LandingPage() {
             {/* Brand */}
             <div className="md:col-span-2">
               <div className="flex items-center gap-2 mb-4">
-                <Image src="/favicon.svg" alt="FindIt" width={22} height={22} />
-                <span className="text-xl font-bold text-white tracking-tight">FindIt</span>
+                <Image src="/favicon.svg" alt="Findit" width={22} height={22} />
+                <span className="text-xl font-bold text-white tracking-tight">Findit</span>
               </div>
               <p className="text-sm leading-relaxed max-w-sm">
                 The official lost and found platform for Babcock University. Helping students, staff, and visitors reconnect with their belongings.
@@ -587,7 +587,7 @@ export default function LandingPage() {
           </div>
 
           <div className="border-t border-white/10 mt-10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs">&copy; {new Date().getFullYear()} FindIt. Built for Babcock University.</p>
+            <p className="text-xs">&copy; {new Date().getFullYear()} Findit. Built for Babcock University.</p>
             <p className="text-xs">Made with ❤️ for the Babcock community</p>
           </div>
         </div>

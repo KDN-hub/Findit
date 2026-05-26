@@ -47,7 +47,7 @@ def generate_registration_options_route(current_user: dict = Depends(get_current
     # We create options
     options = generate_registration_options(
         rp_id=RP_ID,
-        rp_name="FindIt App",
+        rp_name="Findit App",
         user_id=user_id.encode("utf-8"),
         user_name=user_email,
         authenticator_selection=AuthenticatorSelectionCriteria(

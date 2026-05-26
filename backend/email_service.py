@@ -44,7 +44,7 @@ def send_email_smtp(recipient_email: str, subject: str, html_body: str):
                 "subject": subject
             }
         ],
-        "from": {"email": SENDER_EMAIL, "name": "FindIt"},
+        "from": {"email": SENDER_EMAIL, "name": "Findit"},
         "content": [
             {
                 "type": "text/html",
@@ -94,12 +94,12 @@ def send_login_alert_email(user_email: str, user_name: str):
 
 def send_reset_code_email(user_email: str, otp: str):
     print(f"[EMAIL] send_reset_code_email START to={user_email!r} otp_len={len(otp)}")
-    subject = "Your FindIt Reset Code"
+    subject = "Your Findit Reset Code"
     html_body = f"""\
 <html>
   <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
     <div style="background-color: #003898; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-      <h1 style="color: #ffffff; margin: 0;">FindIt</h1>
+      <h1 style="color: #ffffff; margin: 0;">Findit</h1>
     </div>
     <div style="padding: 30px; background-color: #f9f9f9; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
       <h2 style="color: #333;">Password Reset Code</h2>
@@ -109,7 +109,7 @@ def send_reset_code_email(user_email: str, otp: str):
       </div>
       <p>If you did not request this, you can safely ignore this email.</p>
       <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
-      <p style="font-size: 12px; color: #999;">This is an automated message from FindIt. Do not reply.</p>
+      <p style="font-size: 12px; color: #999;">This is an automated message from Findit. Do not reply.</p>
     </div>
   </body>
 </html>
@@ -165,12 +165,12 @@ def send_item_notification(user_email: str, user_name: str, item_title: str, ite
 
 def send_registration_otp_email(user_email: str, otp: str):
     print(f"[EMAIL] send_registration_otp_email START to={user_email!r} otp_len={len(otp)}")
-    subject = "Verify your FindIt Account"
+    subject = "Verify your Findit Account"
     html_body = f"""\
 <html>
   <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
     <div style="background-color: #003898; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-      <h1 style="color: #ffffff; margin: 0;">FindIt</h1>
+      <h1 style="color: #ffffff; margin: 0;">Findit</h1>
     </div>
     <div style="padding: 30px; background-color: #f9f9f9; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
       <h2 style="color: #333;">Verify Your Email</h2>
@@ -179,7 +179,7 @@ def send_registration_otp_email(user_email: str, otp: str):
         <span style="font-size: 40px; font-weight: bold; letter-spacing: 12px; color: #003898;">{otp}</span>
       </div>
       <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
-      <p style="font-size: 12px; color: #999;">This is an automated message from FindIt. Do not reply.</p>
+      <p style="font-size: 12px; color: #999;">This is an automated message from Findit. Do not reply.</p>
     </div>
   </body>
 </html>
