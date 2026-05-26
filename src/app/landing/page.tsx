@@ -32,25 +32,27 @@ const faqs = [
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-slate-100 last:border-b-0">
+    <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-[0_2px_6px_rgba(0,0,0,0.01)] transition-all duration-300 hover:shadow-md hover:border-slate-300">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between py-5 px-1 text-left group"
+        className="w-full flex items-center justify-between py-5 px-6 text-left focus:outline-none"
       >
-        <span className="font-semibold text-slate-800 text-[15px] pr-4 group-hover:text-[#003898] transition-colors">
+        <span className="font-semibold text-slate-800 text-[15px] md:text-base pr-4">
           {q}
         </span>
         <svg
-          className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          className={`w-5 h-5 text-[#00875A] shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       <div
-        className={`overflow-hidden transition-all duration-300 ${open ? 'max-h-40 pb-5' : 'max-h-0'}`}
+        className={`overflow-hidden transition-all duration-300 ${open ? 'max-h-40 px-6 pb-5' : 'max-h-0'}`}
       >
-        <p className="text-slate-500 text-sm leading-relaxed px-1">{a}</p>
+        <div className="border-t border-slate-100 pt-4 mt-1">
+          <p className="text-slate-500 text-sm md:text-[15px] leading-relaxed">{a}</p>
+        </div>
       </div>
     </div>
   );
@@ -511,7 +513,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" className="py-16 md:py-24 bg-white">
+      <section id="faq" className="py-16 md:py-24 bg-slate-50/70 border-y border-slate-100">
         <div className="max-w-2xl mx-auto px-6">
           <div className="text-center mb-12">
             <p className="text-[#003898] font-semibold text-sm uppercase tracking-wider mb-2">FAQ</p>
@@ -519,7 +521,7 @@ export default function LandingPage() {
               Frequently Asked Questions
             </h2>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="space-y-4">
             {faqs.map((faq, i) => (
               <FAQItem key={i} q={faq.q} a={faq.a} />
             ))}
