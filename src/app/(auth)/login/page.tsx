@@ -29,6 +29,7 @@ function LoginForm() {
   // Quick Login State
   const [view, setView] = useState<'normal' | 'quick'>('normal');
   const [lastUser, setLastUser] = useState<{name: string, email: string, avatar: string | null} | null>(null);
+  const [preFetchedOptions, setPreFetchedOptions] = useState<any>(null);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('last_user');
@@ -38,6 +39,20 @@ function LoginForm() {
         setLastUser(user);
         setEmailInput(user.email);
         setView('quick');
+
+        // Pre-fetch biometric options to make login instant
+        fetch(`${API_BASE_URL}/auth/webauthn/authenticate/generate-options`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: user.email })
+        })
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data && !data.detail) {
+              setPreFetchedOptions(data);
+            }
+          })
+          .catch(e => console.error("Prefetch failed", e));
       } catch (e) {
         // ignore JSON parse errors
       }
@@ -63,23 +78,27 @@ function LoginForm() {
 
     startTransition(async () => {
       try {
-        const optRes = await fetch(`${API_BASE_URL}/auth/webauthn/authenticate/generate-options`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: emailInput })
-        });
-        
-        if (!optRes.ok) {
-          const err = await optRes.json();
-          const detail = err.detail || 'Could not start biometric login.';
-          if (detail.toLowerCase().includes('not found')) {
-            setGeneralError('No fingerprint registered. Please log in with password to register one in settings.');
-          } else {
-            setGeneralError(detail);
+        let options = preFetchedOptions;
+
+        if (!options) {
+          const optRes = await fetch(`${API_BASE_URL}/auth/webauthn/authenticate/generate-options`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailInput })
+          });
+          
+          if (!optRes.ok) {
+            const err = await optRes.json();
+            const detail = err.detail || 'Could not start biometric login.';
+            if (detail.toLowerCase().includes('not found')) {
+              setGeneralError('No fingerprint registered. Please log in with password to register one in settings.');
+            } else {
+              setGeneralError(detail);
+            }
+            return;
           }
-          return;
+          options = await optRes.json();
         }
-        const options = await optRes.json();
 
         let attResp;
         try {
@@ -99,8 +118,13 @@ function LoginForm() {
         });
         
         if (!verifyRes.ok) {
-          const err = await verifyRes.json();
-          setGeneralError(err.detail || 'Biometric login failed.');
+          try {
+            const err = await verifyRes.json();
+            setGeneralError(err.detail || 'Biometric login failed.');
+          } catch (e) {
+            const text = await verifyRes.text().catch(() => 'No text');
+            throw new Error(`Server returned ${verifyRes.status}: ${text.substring(0, 100)}`);
+          }
           return;
         }
 
@@ -112,7 +136,7 @@ function LoginForm() {
         router.refresh();
       } catch (err: any) {
         console.error(err);
-        setGeneralError('An error occurred during biometric login.');
+        setGeneralError(`Biometric login error: ${err.message || 'Unknown error'}`);
       }
     });
   }
@@ -230,6 +254,7 @@ function LoginForm() {
             onClick={() => {
               localStorage.removeItem('last_user');
               setLastUser(null);
+              setPreFetchedOptions(null);
               setEmailInput('');
               setView('normal');
             }}
