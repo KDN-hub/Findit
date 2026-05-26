@@ -14,7 +14,7 @@ export default function MainLayout({
         <SidebarNavigation />
         <div className="flex-1 flex flex-col min-w-0 bg-white">
           <SwipeableLayout>
-            <div className="flex-1 pb-24 md:pb-8 md:px-8 md:max-w-6xl md:mx-auto md:w-full">
+            <div className="flex-1 pb-24 md:pb-8">
               {children}
             </div>
           </SwipeableLayout>

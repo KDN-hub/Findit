@@ -306,223 +306,226 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      {/* Stats */}
-      <div className="px-4 -mt-4">
-        <div className="bg-white rounded-2xl shadow-lg p-4 flex items-center justify-around">
-          {!statsLoaded ? (
-            <>
-              <div className="text-center animate-pulse">
-                <div className="h-8 w-10 bg-slate-200 rounded mx-auto mb-1" />
-                <div className="h-3 w-14 bg-slate-100 rounded mx-auto" />
-              </div>
-              <div className="w-px h-10 bg-slate-200" />
-              <div className="text-center animate-pulse">
-                <div className="h-8 w-10 bg-slate-200 rounded mx-auto mb-1" />
-                <div className="h-3 w-12 bg-slate-100 rounded mx-auto" />
-              </div>
-              <div className="w-px h-10 bg-slate-200" />
-              <div className="text-center animate-pulse">
-                <div className="h-8 w-10 bg-slate-200 rounded mx-auto mb-1" />
-                <div className="h-3 w-14 bg-slate-100 rounded mx-auto" />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-[#003898]">{stats.reported}</p>
-                <p className="text-xs text-slate-500">Reported</p>
-              </div>
-              <div className="w-px h-10 bg-slate-200" />
-              <div className="text-center">
-                <p className="text-2xl font-bold text-[#003898]">{stats.claims}</p>
-                <p className="text-xs text-slate-500">Claims</p>
-              </div>
-              <div className="w-px h-10 bg-slate-200" />
-              <div className="text-center">
-                <p className="text-2xl font-bold text-[#003898]">{stats.reunited}</p>
-                <p className="text-xs text-slate-500">Reunited</p>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="px-4 mt-6">
-        <div className="flex bg-[#F1F5F9] rounded-xl p-1">
-          <button
-            onClick={() => setActiveTab('reported')}
-            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-all ${activeTab === 'reported'
-              ? 'bg-white text-[#003898] shadow-sm'
-              : 'text-slate-500'
-              }`}
-          >
-            My Reported Items
-          </button>
-          <button
-            onClick={() => setActiveTab('claims')}
-            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-all ${activeTab === 'claims'
-              ? 'bg-white text-[#003898] shadow-sm'
-              : 'text-slate-500'
-              }`}
-          >
-            My Claims
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="px-4 mt-4">
-        {activeTab === 'reported' ? (
-          <div className="space-y-3">
-            {!reportedLoaded ? (
+      {/* Profile Body Content */}
+      <div className="max-w-4xl mx-auto w-full">
+        {/* Stats */}
+        <div className="px-4 -mt-4">
+          <div className="bg-white rounded-2xl shadow-lg p-4 flex items-center justify-around">
+            {!statsLoaded ? (
               <>
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl animate-pulse">
-                    <div className="w-16 h-16 rounded-xl bg-slate-200 shrink-0" />
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div className="h-4 w-16 bg-slate-200 rounded" />
-                      <div className="h-4 w-3/4 bg-slate-200 rounded" />
-                      <div className="h-3 w-1/2 bg-slate-100 rounded" />
-                    </div>
-                    <div className="h-3 w-12 bg-slate-200 rounded shrink-0" />
-                  </div>
-                ))}
-              </>
-            ) : reportedItems.length === 0 ? (
-              <div className="py-12 text-center">
-                <div className="w-16 h-16 bg-[#F1F5F9] rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                  </svg>
+                <div className="text-center animate-pulse">
+                  <div className="h-8 w-10 bg-slate-200 rounded mx-auto mb-1" />
+                  <div className="h-3 w-14 bg-slate-100 rounded mx-auto" />
                 </div>
-                <h3 className="font-semibold text-slate-800 mb-1">No reported items</h3>
-                <p className="text-sm text-slate-500 mb-4">Items you report will appear here</p>
-                <Link href="/report" className="text-[#003898] font-medium text-sm">
-                  Report an item →
-                </Link>
-              </div>
+                <div className="w-px h-10 bg-slate-200" />
+                <div className="text-center animate-pulse">
+                  <div className="h-8 w-10 bg-slate-200 rounded mx-auto mb-1" />
+                  <div className="h-3 w-12 bg-slate-100 rounded mx-auto" />
+                </div>
+                <div className="w-px h-10 bg-slate-200" />
+                <div className="text-center animate-pulse">
+                  <div className="h-8 w-10 bg-slate-200 rounded mx-auto mb-1" />
+                  <div className="h-3 w-14 bg-slate-100 rounded mx-auto" />
+                </div>
+              </>
             ) : (
-              reportedItems.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/items/${item.id}`}
-                  className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl hover:bg-slate-100 transition-colors"
-                >
-                  {/* Image */}
-                  <div className="w-16 h-16 bg-[#E8ECF4] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
-                    {item.image_url ? (
-                      <ItemImage src={item.image_url} alt={item.title} className="w-full h-full object-cover rounded-xl" loading="lazy" />
-                    ) : (
-                      <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                      </svg>
-                    )}
-                  </div>
+              <>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-[#003898]">{stats.reported}</p>
+                  <p className="text-xs text-slate-500">Reported</p>
+                </div>
+                <div className="w-px h-10 bg-slate-200" />
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-[#003898]">{stats.claims}</p>
+                  <p className="text-xs text-slate-500">Claims</p>
+                </div>
+                <div className="w-px h-10 bg-slate-200" />
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-[#003898]">{stats.reunited}</p>
+                  <p className="text-xs text-slate-500">Reunited</p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
 
-                  {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+        {/* Tabs */}
+        <div className="px-4 mt-6">
+          <div className="flex bg-[#F1F5F9] rounded-xl p-1">
+            <button
+              onClick={() => setActiveTab('reported')}
+              className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-all ${activeTab === 'reported'
+                ? 'bg-white text-[#003898] shadow-sm'
+                : 'text-slate-500'
+                }`}
+            >
+              My Reported Items
+            </button>
+            <button
+              onClick={() => setActiveTab('claims')}
+              className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-all ${activeTab === 'claims'
+                ? 'bg-white text-[#003898] shadow-sm'
+                : 'text-slate-500'
+                }`}
+            >
+              My Claims
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-4 mt-4">
+          {activeTab === 'reported' ? (
+            <div className="space-y-3">
+              {!reportedLoaded ? (
+                <>
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl animate-pulse">
+                      <div className="w-16 h-16 rounded-xl bg-slate-200 shrink-0" />
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="h-4 w-16 bg-slate-200 rounded" />
+                        <div className="h-4 w-3/4 bg-slate-200 rounded" />
+                        <div className="h-3 w-1/2 bg-slate-100 rounded" />
+                      </div>
+                      <div className="h-3 w-12 bg-slate-200 rounded shrink-0" />
+                    </div>
+                  ))}
+                </>
+              ) : reportedItems.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="w-16 h-16 bg-[#F1F5F9] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-slate-800 mb-1">No reported items</h3>
+                  <p className="text-sm text-slate-500 mb-4">Items you report will appear here</p>
+                  <Link href="/report" className="text-[#003898] font-medium text-sm">
+                    Report an item →
+                  </Link>
+                </div>
+              ) : (
+                reportedItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/items/${item.id}`}
+                    className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl hover:bg-slate-100 transition-colors"
+                  >
+                    {/* Image */}
+                    <div className="w-16 h-16 bg-[#E8ECF4] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                      {item.image_url ? (
+                        <ItemImage src={item.image_url} alt={item.title} className="w-full h-full object-cover rounded-xl" loading="lazy" />
+                      ) : (
+                        <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
+                          {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-[#003898] truncate">{item.title}</h3>
+                      <p className="text-xs text-slate-500">{item.location}</p>
+                    </div>
+
+                    {/* Time */}
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-slate-400">{formatTimeAgo(item.created_at)}</p>
+                      <svg className="w-4 h-4 text-slate-400 ml-auto mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {!claimsLoaded ? (
+                <>
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl animate-pulse">
+                      <div className="w-16 h-16 rounded-xl bg-slate-200 shrink-0" />
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="h-4 w-16 bg-slate-200 rounded" />
+                        <div className="h-4 w-3/4 bg-slate-200 rounded" />
+                        <div className="h-3 w-1/2 bg-slate-100 rounded" />
+                      </div>
+                      <div className="h-3 w-12 bg-slate-200 rounded shrink-0" />
+                    </div>
+                  ))}
+                </>
+              ) : claimedItems.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="w-16 h-16 bg-[#F1F5F9] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-slate-800 mb-1">No claims yet</h3>
+                  <p className="text-sm text-slate-500 mb-4">Items you claim will appear here</p>
+                  <Link href="/items" className="text-[#003898] font-medium text-sm">
+                    Browse items →
+                  </Link>
+                </div>
+              ) : (
+                claimedItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/messages/${item.conversation_id || item.item_id}`} // robust fallback
+                    className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl hover:bg-slate-100 transition-colors"
+                  >
+                    {/* Image */}
+                    <div className="w-16 h-16 bg-[#E8ECF4] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                      {item.photo_url ? (
+                        <ItemImage src={item.photo_url} alt={item.title} className="w-full h-full object-cover rounded-xl" loading="lazy" />
+                      ) : (
+                        <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
                         {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                       </span>
+                      <h3 className="font-semibold text-[#003898] truncate mt-1">{item.title}</h3>
+                      <p className="text-xs text-slate-500">Found by {item.finder_name}</p>
                     </div>
-                    <h3 className="font-semibold text-[#003898] truncate">{item.title}</h3>
-                    <p className="text-xs text-slate-500">{item.location}</p>
-                  </div>
 
-                  {/* Time */}
-                  <div className="text-right shrink-0">
-                    <p className="text-xs text-slate-400">{formatTimeAgo(item.created_at)}</p>
-                    <svg className="w-4 h-4 text-slate-400 ml-auto mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {!claimsLoaded ? (
-              <>
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl animate-pulse">
-                    <div className="w-16 h-16 rounded-xl bg-slate-200 shrink-0" />
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div className="h-4 w-16 bg-slate-200 rounded" />
-                      <div className="h-4 w-3/4 bg-slate-200 rounded" />
-                      <div className="h-3 w-1/2 bg-slate-100 rounded" />
-                    </div>
-                    <div className="h-3 w-12 bg-slate-200 rounded shrink-0" />
-                  </div>
-                ))}
-              </>
-            ) : claimedItems.length === 0 ? (
-              <div className="py-12 text-center">
-                <div className="w-16 h-16 bg-[#F1F5F9] rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
-                  </svg>
-                </div>
-                <h3 className="font-semibold text-slate-800 mb-1">No claims yet</h3>
-                <p className="text-sm text-slate-500 mb-4">Items you claim will appear here</p>
-                <Link href="/items" className="text-[#003898] font-medium text-sm">
-                  Browse items →
-                </Link>
-              </div>
-            ) : (
-              claimedItems.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/messages/${item.conversation_id || item.item_id}`} // robust fallback
-                  className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-2xl hover:bg-slate-100 transition-colors"
-                >
-                  {/* Image */}
-                  <div className="w-16 h-16 bg-[#E8ECF4] rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
-                    {item.photo_url ? (
-                      <ItemImage src={item.photo_url} alt={item.title} className="w-full h-full object-cover rounded-xl" loading="lazy" />
-                    ) : (
-                      <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                    {/* Time & Arrow */}
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-slate-400">{formatTimeAgo(item.claimed_at)}</p>
+                      <svg className="w-4 h-4 text-slate-400 ml-auto mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
-                    )}
-                  </div>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
+        </div>
 
-                  {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
-                      {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                    </span>
-                    <h3 className="font-semibold text-[#003898] truncate mt-1">{item.title}</h3>
-                    <p className="text-xs text-slate-500">Found by {item.finder_name}</p>
-                  </div>
-
-                  {/* Time & Arrow */}
-                  <div className="text-right shrink-0">
-                    <p className="text-xs text-slate-400">{formatTimeAgo(item.claimed_at)}</p>
-                    <svg className="w-4 h-4 text-slate-400 ml-auto mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Log Out Button */}
-      <div className="px-4 mt-6">
-        <button
-          onClick={() => setShowLogoutConfirm(true)}
-          className="w-full py-3.5 bg-red-50 border-2 border-red-200 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          Log Out
-        </button>
+        {/* Log Out Button */}
+        <div className="px-4 mt-6">
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="w-full py-3.5 bg-red-50 border-2 border-red-200 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Log Out
+          </button>
+        </div>
       </div>
     </div>
   );

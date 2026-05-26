@@ -4,10 +4,18 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   // Ensure we always use the robust 127.0.0.1 URL
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
 
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  const headers = new Headers();
+  headers.set('Content-Type', 'application/json');
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  if (options.headers) {
+    const customHeaders = new Headers(options.headers);
+    customHeaders.forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
 
   const res = await fetch(url, { ...options, headers, credentials: 'include' });
   
