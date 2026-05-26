@@ -7,9 +7,15 @@ export default function SplashScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to login page after 2 seconds
+    // Check if user has completed onboarding
+    const hasOnboarded = localStorage.getItem('onboarding_complete');
+    
     const timer = setTimeout(() => {
-      router.replace('/login');
+      if (hasOnboarded) {
+        router.replace('/login');
+      } else {
+        router.replace('/onboarding');
+      }
     }, 2000);
 
     return () => clearTimeout(timer);
