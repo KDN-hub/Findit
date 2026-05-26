@@ -9,7 +9,7 @@ const slides = [
     id: 1,
     title: 'Find What\u2019s Lost',
     subtitle: 'Lost something on campus? Browse reported items or post your own — we help reconnect you with your belongings.',
-    gradient: 'from-[#003898] to-[#0057d4]',
+    gradient: 'from-[#002266] to-[#003898]',
     icon: (
       <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Magnifying glass over location pin */}
@@ -26,15 +26,15 @@ const slides = [
     id: 2,
     title: 'Report in Seconds',
     subtitle: 'Snap a photo, add details, and post your found or lost item. It takes less than 30 seconds to help someone.',
-    gradient: 'from-[#0057d4] to-[#0070f3]',
+    gradient: 'from-[#003898] to-[#002266]',
     icon: (
       <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Camera / report icon */}
         <rect x="20" y="35" width="80" height="60" rx="12" fill="white" fillOpacity="0.15" />
         <rect x="28" y="42" width="64" height="46" rx="8" fill="white" fillOpacity="0.25" />
         <circle cx="60" cy="65" r="14" fill="white" fillOpacity="0.9" />
-        <circle cx="60" cy="65" r="9" stroke="#0057d4" strokeWidth="2.5" fill="none" />
-        <circle cx="60" cy="65" r="4" fill="#0057d4" />
+        <circle cx="60" cy="65" r="9" stroke="#003898" strokeWidth="2.5" fill="none" />
+        <circle cx="60" cy="65" r="4" fill="#003898" />
         <rect x="44" y="30" width="32" height="10" rx="5" fill="white" fillOpacity="0.3" />
         {/* Flash indicator */}
         <path d="M82 48L78 54H82L78 60" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
@@ -45,14 +45,14 @@ const slides = [
     id: 3,
     title: 'Claim & Verify',
     subtitle: 'Think you found your item? Submit a claim with proof. Our secure verification system ensures the right person gets it back.',
-    gradient: 'from-[#0070f3] to-[#00a8ff]',
+    gradient: 'from-[#002266] to-[#003898]',
     icon: (
       <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Shield with checkmark */}
         <path d="M60 15L25 35V60C25 82 40 100 60 108C80 100 95 82 95 60V35L60 15Z" fill="white" fillOpacity="0.15" />
         <path d="M60 25L33 41V60C33 78 45 93 60 100C75 93 87 78 87 60V41L60 25Z" fill="white" fillOpacity="0.25" />
         <circle cx="60" cy="60" r="20" fill="white" fillOpacity="0.9" />
-        <path d="M49 60L56 67L72 51" stroke="#0070f3" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M49 60L56 67L72 51" stroke="#003898" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -60,7 +60,7 @@ const slides = [
     id: 4,
     title: 'Safe Handover',
     subtitle: 'Meet up securely with unique verification codes. Both parties confirm the exchange — no more mix-ups or disputes.',
-    gradient: 'from-[#00a8ff] to-[#003898]',
+    gradient: 'from-[#003898] to-[#002266]',
     icon: (
       <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Handshake / exchange */}
@@ -70,7 +70,7 @@ const slides = [
         <path d="M30 65C30 65 40 55 50 55C55 55 58 58 60 60" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.9" />
         <path d="M90 65C90 65 80 55 70 55C65 55 62 58 60 60" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.9" />
         <circle cx="60" cy="60" r="6" fill="white" fillOpacity="0.9" />
-        <path d="M57 60L59 62L63 58" stroke="#00a8ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M57 60L59 62L63 58" stroke="#003898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         {/* Sparkles */}
         <circle cx="42" cy="42" r="2" fill="white" opacity="0.5" />
         <circle cx="78" cy="42" r="2" fill="white" opacity="0.5" />
