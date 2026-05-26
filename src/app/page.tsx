@@ -7,19 +7,23 @@ export default function SplashScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if running as installed PWA (standalone mode)
-    const isPWA =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
-
     const timer = setTimeout(() => {
-      if (isPWA) {
-        // PWA users → onboarding (first time) or login (returning)
-        const hasOnboarded = localStorage.getItem('onboarding_complete');
-        router.replace(hasOnboarded ? '/login' : '/onboarding');
-      } else {
-        // Browser visitors → landing page
+      const lastUser = localStorage.getItem('last_user');
+      const hasOnboarded = localStorage.getItem('onboarding_complete');
+      const isMobile = window.innerWidth < 768 || window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+
+      if (lastUser) {
+        // Active user: always route to login (shows biometric or password)
+        router.replace('/login');
+      } else if (isMobile && !hasOnboarded) {
+        // New mobile user: onboarding
+        router.replace('/onboarding');
+      } else if (!isMobile) {
+        // Desktop user (not active): landing
         router.replace('/landing');
+      } else {
+        // Mobile user, already onboarded, not logged in
+        router.replace('/login');
       }
     }, 2000);
 

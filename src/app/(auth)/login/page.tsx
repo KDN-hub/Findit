@@ -188,7 +188,7 @@ function LoginForm() {
     <>
       {/* Quick Login View rendering */}
       {view === 'quick' && lastUser && (
-        <div className="w-full max-w-md mx-auto flex flex-col px-6 md:hidden items-center pb-8 safe-area-bottom">
+        <div className="w-full max-w-md mx-auto flex flex-col px-6 items-center pb-8 safe-area-bottom">
         
         {/* App Logo */}
         <div className="mb-10 text-center">
@@ -276,7 +276,7 @@ function LoginForm() {
       )}
 
       {/* Normal Login View rendering */}
-      <div className={`w-full max-w-md mx-auto flex flex-col px-6 pb-8 safe-area-bottom ${view === 'quick' && lastUser ? 'hidden md:flex' : ''}`}>
+      <div className={`w-full max-w-md mx-auto flex flex-col px-6 pb-8 safe-area-bottom ${view === 'quick' && lastUser ? 'hidden' : ''}`}>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-[32px] font-bold text-[#003898] mb-2 mt-4">Welcome back!</h1>
