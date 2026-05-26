@@ -9,12 +9,6 @@ export default function AuthLayout({
     <div className="min-h-dvh flex bg-white">
       {/* Left Panel - Form Container */}
       <div className="w-full lg:w-1/2 flex flex-col min-h-dvh overflow-y-auto bg-white relative">
-        {/* Logo at Top Left for Desktop */}
-        <div className="absolute top-8 left-8 hidden lg:flex items-center gap-2 z-20">
-          <Image src="/favicon.svg" alt="Findit" width={28} height={28} />
-          <span className="text-xl font-bold tracking-tight text-[#003898]">Findit</span>
-        </div>
-        
         <div className="flex-1 flex flex-col justify-center w-full py-8 z-10">
           {children}
         </div>
