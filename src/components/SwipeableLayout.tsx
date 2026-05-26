@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence, PanInfo, useMotionValue } from 'framer-motion';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 
 interface SwipeableLayoutProps {
     children: ReactNode;
@@ -16,6 +16,14 @@ export function SwipeableLayout({ children }: SwipeableLayoutProps) {
     const pathname = usePathname();
     const x = useMotionValue(0);
     const [isDragging, setIsDragging] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Determine current page index
     const currentIndex = PAGE_ORDER.findIndex((path) => pathname.startsWith(path));
@@ -55,7 +63,7 @@ export function SwipeableLayout({ children }: SwipeableLayoutProps) {
     };
 
     // Only enable swipe on main pages
-    const isSwipeEnabled = currentIndex !== -1;
+    const isSwipeEnabled = currentIndex !== -1 && isMobile;
 
     // Instagram-style slide variants
     const slideVariants = {

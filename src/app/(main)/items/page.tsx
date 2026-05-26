@@ -257,7 +257,7 @@ export default function ItemsFoundPage() {
                     Still Looking ({activeItems.length})
                   </h2>
                 </div>
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {activeItems.map((item) => (
                     <ItemCard key={item.id} item={item} />
                   ))}
@@ -285,7 +285,7 @@ export default function ItemsFoundPage() {
                     </h2>
                   </div>
                 )}
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {recoveredItems.map((item) => (
                     <ItemCard key={item.id} item={item} />
                   ))}
