@@ -93,7 +93,7 @@ function VerifyOtpForm() {
   );
 
   return (
-    <div className="min-h-dvh bg-white flex flex-col px-6 pt-16 pb-8 safe-area-top safe-area-bottom">
+    <div className="w-full max-w-md mx-auto flex flex-col px-6 pb-8 safe-area-bottom">
 
       {/* Back Button */}
       <Link
@@ -175,7 +175,7 @@ function VerifyOtpForm() {
 export default function VerifyOtpPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-dvh bg-white flex flex-col px-6 pt-16 pb-8 safe-area-top safe-area-bottom justify-center">
+      <div className="w-full flex flex-col px-6 py-20 justify-center items-center">
         <div className="animate-pulse text-[#6B7280] text-center">Loading…</div>
       </div>
     }>

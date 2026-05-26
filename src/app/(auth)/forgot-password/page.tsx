@@ -125,7 +125,7 @@ export default function ForgotPasswordPage() {
   );
 
   return (
-    <div className="min-h-dvh bg-white flex flex-col px-6 pt-16 pb-8 safe-area-top safe-area-bottom">
+    <div className="w-full max-w-md mx-auto flex flex-col px-6 pb-8 safe-area-bottom">
 
       {/* Back Button */}
       <Link

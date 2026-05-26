@@ -188,7 +188,7 @@ function LoginForm() {
     <>
       {/* Quick Login View rendering */}
       {view === 'quick' && lastUser && (
-        <div className="min-h-dvh bg-white md:hidden flex flex-col px-6 pt-16 pb-8 safe-area-top safe-area-bottom items-center">
+        <div className="w-full max-w-md mx-auto flex flex-col px-6 md:hidden items-center pb-8 safe-area-bottom">
         
         {/* App Logo */}
         <div className="mb-10 text-center">
@@ -276,7 +276,7 @@ function LoginForm() {
       )}
 
       {/* Normal Login View rendering */}
-      <div className={`min-h-dvh bg-white flex flex-col px-6 pt-10 pb-8 safe-area-top safe-area-bottom ${view === 'quick' && lastUser ? 'hidden md:flex' : ''}`}>
+      <div className={`w-full max-w-md mx-auto flex flex-col px-6 pb-8 safe-area-bottom ${view === 'quick' && lastUser ? 'hidden md:flex' : ''}`}>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-[32px] font-bold text-[#003898] mb-2 mt-4">Welcome back!</h1>
@@ -408,7 +408,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-dvh bg-white flex flex-col px-6 pt-10 pb-8 safe-area-top safe-area-bottom justify-center">
+      <div className="w-full flex flex-col px-6 py-20 justify-center items-center">
         <div className="animate-pulse text-[#6B7280] text-center">Loading…</div>
       </div>
     }>

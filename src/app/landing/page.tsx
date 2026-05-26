@@ -150,6 +150,14 @@ export default function LandingPage() {
               Log In
             </Link>
             <Link
+              href="/signup"
+              className={`hidden md:inline-flex text-sm font-semibold transition-colors ${
+                scrolled ? 'text-[#003898]' : 'text-white'
+              }`}
+            >
+              Create Account
+            </Link>
+            <Link
               href="/login"
               className="h-10 px-5 bg-[#003898] text-white text-sm font-semibold rounded-full flex items-center justify-center hover:bg-[#002266] transition-all active:scale-95 shadow-lg shadow-[#003898]/20"
             >
@@ -188,8 +196,11 @@ export default function LandingPage() {
                   {item}
                 </a>
               ))}
-              <Link href="/login" className="block py-3 text-[#003898] font-semibold">
-                Log In →
+              <Link href="/login" className="block py-3 text-slate-700 font-medium hover:text-[#003898] transition-colors">
+                Log In
+              </Link>
+              <Link href="/signup" className="block py-3 text-[#003898] font-semibold">
+                Create Account →
               </Link>
             </div>
           </div>
