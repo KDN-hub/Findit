@@ -293,7 +293,7 @@ export default function LandingPage() {
         </div>
 
         {/* Wave separator */}
-        <div className="absolute bottom-0 left-0 right-0">
+        <div className="absolute bottom-[-1px] left-0 right-0">
           <svg viewBox="0 0 1440 60" fill="none" className="w-full">
             <path d="M0 60V30C240 0 480 0 720 30C960 60 1200 60 1440 30V60H0Z" fill="white" />
           </svg>
