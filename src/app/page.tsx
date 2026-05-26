@@ -7,14 +7,19 @@ export default function SplashScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user has completed onboarding
-    const hasOnboarded = localStorage.getItem('onboarding_complete');
-    
+    // Check if running as installed PWA (standalone mode)
+    const isPWA =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true;
+
     const timer = setTimeout(() => {
-      if (hasOnboarded) {
-        router.replace('/login');
+      if (isPWA) {
+        // PWA users → onboarding (first time) or login (returning)
+        const hasOnboarded = localStorage.getItem('onboarding_complete');
+        router.replace(hasOnboarded ? '/login' : '/onboarding');
       } else {
-        router.replace('/onboarding');
+        // Browser visitors → landing page
+        router.replace('/landing');
       }
     }, 2000);
 
