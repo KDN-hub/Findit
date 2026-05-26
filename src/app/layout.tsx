@@ -3,6 +3,7 @@ import { Inter_Tight } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { ModalProvider } from '@/context/ModalContext';
+import { GoogleAuthProvider } from '@/context/GoogleOAuthProvider';
 import './globals.css';
 
 const interTight = Inter_Tight({
@@ -46,8 +47,10 @@ export default function RootLayout({
       <body className={`${interTight.variable} ${interTight.className} antialiased`}>
         <ThemeProvider>
           <ModalProvider>
-            <main className="min-h-dvh">{children}</main>
-            <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+            <GoogleAuthProvider>
+              <main className="min-h-dvh">{children}</main>
+              <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+            </GoogleAuthProvider>
           </ModalProvider>
         </ThemeProvider>
       </body>
