@@ -10,7 +10,7 @@ export default function AuthLayout({
       {/* Left Panel - Form Container */}
       <div className="w-full lg:w-[45%] flex flex-col min-h-dvh overflow-y-auto bg-white relative px-8 md:px-16 lg:px-24">
         {/* Logo at top left */}
-        <div className="pt-12 pb-8">
+        <div className="pt-12 pb-8 auth-layout-logo">
           <Link href="/" className="flex items-center gap-2 w-fit">
             <div className="w-8 h-8 rounded-full bg-[#003898] flex items-center justify-center shadow-sm">
               <svg width="13" height="19" viewBox="0 0 96 140" fill="none" xmlns="http://www.w3.org/2000/svg" className="translate-y-[-0.5px]">

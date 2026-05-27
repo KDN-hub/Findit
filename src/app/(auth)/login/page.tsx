@@ -227,22 +227,15 @@ function LoginForm() {
       {view === 'quick' && lastUser && (
         <div className="w-full max-w-md mx-auto flex flex-col px-6 items-center pb-8 safe-area-bottom md:hidden">
         
-        {/* App Logo */}
-        <div className="mb-10 text-center">
-          <h1 className="text-[32px] font-bold tracking-tight text-[#003898]">Findit</h1>
-        </div>
+        {/* Style injection to hide the top-left layout logo on the quick login screen */}
+        <style dangerouslySetInnerHTML={{__html: `
+          .auth-layout-logo {
+            display: none !important;
+          }
+        `}} />
 
-        {/* User Info */}
-        <div className="flex flex-col items-center mb-16">
-          <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden mb-4 border-2 border-white shadow-sm">
-            {lastUser.avatar ? (
-              <img src={lastUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <svg className="w-10 h-10 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            )}
-          </div>
+        {/* User Info - removed avatar sign */}
+        <div className="flex flex-col items-center mb-16 mt-8">
           <h2 className="text-lg font-bold text-slate-800 tracking-wide uppercase">
             {lastUser.name}
           </h2>
