@@ -13,17 +13,14 @@ export default function SplashScreen() {
       const isMobile = window.innerWidth < 768 || window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
 
       if (lastUser) {
-        // Active user: always route to login (shows biometric or password)
+        // Returning user: fast-track to login (shows biometric or password)
         router.replace('/login');
       } else if (isMobile && !hasOnboarded) {
         // New mobile user: onboarding
         router.replace('/onboarding');
-      } else if (!isMobile) {
-        // Desktop user (not active): landing
-        router.replace('/landing');
       } else {
-        // Mobile user, already onboarded, not logged in
-        router.replace('/login');
+        // Desktop user OR onboarded mobile user who is not logged in: landing page
+        router.replace('/landing');
       }
     }, 2000);
 

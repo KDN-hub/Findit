@@ -116,7 +116,7 @@ export default function OnboardingPage() {
 
   const completeOnboarding = useCallback(() => {
     localStorage.setItem('onboarding_complete', 'true');
-    router.replace('/login');
+    router.replace('/landing');
   }, [router]);
 
   const goToSlide = useCallback((index: number) => {
