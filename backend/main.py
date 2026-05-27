@@ -266,6 +266,7 @@ class ItemResponse(BaseModel):
     reporter_name: Optional[str] = None
     verification_pin: Optional[str] = None
     created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 class MessageCreate(BaseModel):
     receiver_id: int
@@ -1040,6 +1041,9 @@ def get_items(
         if item_status:
             conditions.append("i.status = %s")
             params.append(item_status)
+        else:
+            # Hide recovered/returned items by default from the main feed
+            conditions.append("i.status NOT IN ('Recovered', 'Returned')")
 
         if category:
             conditions.append("i.category = %s")
@@ -1060,6 +1064,48 @@ def get_items(
                 item["created_at"] = str(item["created_at"])
             if item.get("date_found"):
                 item["date_found"] = str(item["date_found"])
+            if item.get("updated_at"):
+                item["updated_at"] = str(item["updated_at"])
+            
+            # Optimize Cloudinary URL format
+            if item.get("image_url") and "res.cloudinary.com" in item["image_url"]:
+                parts = item["image_url"].split("/upload/")
+                if len(parts) == 2:
+                    item["image_url"] = f"{parts[0]}/upload/w_500,q_auto,f_auto/{parts[1]}"
+
+        return items
+
+    except pymysql.Error as err:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+
+
+@app.get("/items/recovered", response_model=List[ItemResponse])
+def get_recovered_items(db=Depends(get_db_connection)):
+    """Public route: fetch recently recovered items (last 10, ordered by updated_at DESC) for social proof."""
+    cursor = db.cursor(pymysql.cursors.DictCursor)
+    try:
+        query = """
+            SELECT i.*, u.full_name AS reporter_name
+            FROM items i
+            JOIN users u ON i.user_id = u.id
+            WHERE i.status IN ('Recovered', 'Returned')
+            ORDER BY i.updated_at DESC
+            LIMIT 10
+        """
+        cursor.execute(query)
+        items = cursor.fetchall()
+
+        # Convert datetime/date objects to strings
+        for item in items:
+            if item.get("created_at"):
+                item["created_at"] = str(item["created_at"])
+            if item.get("date_found"):
+                item["date_found"] = str(item["date_found"])
+            if item.get("updated_at"):
+                item["updated_at"] = str(item["updated_at"])
             
             # Optimize Cloudinary URL format
             if item.get("image_url") and "res.cloudinary.com" in item["image_url"]:

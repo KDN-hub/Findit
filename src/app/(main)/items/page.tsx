@@ -20,6 +20,7 @@ interface ApiItem {
   reporter_name: string | null;
   image_url: string | null;
   created_at: string | null;
+  updated_at: string | null;
 }
 
 export default function ItemsFoundPage() {

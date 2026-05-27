@@ -13,6 +13,20 @@ export function DashboardItemsSection() {
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
+  
+  // Recently Recovered State
+  const [recoveredItems, setRecoveredItems] = useState<ApiItem[]>([]);
+  const [isLoadingRecovered, setIsLoadingRecovered] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/items/recovered')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        setRecoveredItems(data);
+        setIsLoadingRecovered(false);
+      })
+      .catch(() => setIsLoadingRecovered(false));
+  }, []);
 
   useEffect(() => {
     if (todaysItems.length <= 1) return;
@@ -44,7 +58,7 @@ export function DashboardItemsSection() {
           >
             {todaysItems.length > 0 ? (
               todaysItems.map((item: ApiItem) => {
-                const isCompleted = item.status === 'Completed' || item.status === 'Returned';
+                const isCompleted = item.status === 'Completed' || item.status === 'Returned' || item.status === 'Recovered';
                 return (
                 <Link
                   key={item.id}
@@ -126,6 +140,73 @@ export function DashboardItemsSection() {
           )}
         </div>
       </section>
+
+      {/* Recently Recovered Section (Social Proof) */}
+      {recoveredItems.length > 0 && (
+        <section className="px-4 mb-8">
+          {/* Card Header & Celebration Banner */}
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-3xl p-5 mb-4 shadow-sm relative overflow-hidden">
+            {/* Background sparkle effect */}
+            <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-24 h-24 bg-emerald-200/20 rounded-full blur-xl" />
+            <div className="absolute left-1/3 bottom-0 translate-y-6 w-20 h-20 bg-teal-200/20 rounded-full blur-xl" />
+
+            <div className="flex items-start gap-4.5 relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <span className="text-2xl">🎉</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 leading-tight">Reunited & Recovered!</h2>
+                <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+                  <span className="font-extrabold text-emerald-600">{recoveredItems.length} items</span> reunited with their owners recently! Babcock campus is looking out for each other.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Horizontal Scrolling Recovered Cards */}
+          <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-none snap-x snap-mandatory">
+            {recoveredItems.map((item) => {
+              const { Icon, bg, color } = getCategoryIcon(item.category);
+              const isCompleted = item.status === 'Completed' || item.status === 'Returned' || item.status === 'Recovered';
+              return (
+                <Link
+                  key={item.id}
+                  href={`/items/${item.id}`}
+                  className="w-[280px] shrink-0 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col snap-start hover:border-emerald-200 hover:shadow-md transition-all duration-300"
+                >
+                  <div className="flex gap-3 items-center mb-3">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${item.image_url ? 'bg-slate-50' : bg}`}>
+                      {item.image_url ? (
+                        <ItemImage
+                          src={item.image_url}
+                          alt={item.title}
+                          className="w-full h-full object-cover rounded-xl"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <Icon className={`w-6 h-6 ${color}`} strokeWidth={1.5} />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold text-slate-800 truncate leading-tight">{item.title}</h3>
+                      <p className="text-xs text-slate-400 truncate mt-0.5">{item.location}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-3">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                      🤝 Reunited
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {item.updated_at ? formatTimeAgo(item.updated_at) : 'recently'}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Previously Section */}
       <section className="px-4">

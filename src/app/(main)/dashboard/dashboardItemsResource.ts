@@ -16,6 +16,7 @@ export interface ApiItem {
   image_url: string | null;
   reporter_name: string | null;
   created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface DashboardItemsData {
